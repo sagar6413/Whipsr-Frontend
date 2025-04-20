@@ -1,0 +1,331 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# Frontend Development Guide
+
+## Overview
+
+This guide provides comprehensive information for developing the frontend of the application. ## Application Architecture
+
+## API Integration
+
+### Base URL
+
+- Development: `http://localhost:8080/api`
+- Production: `[Production URL]/api`
+
+### Authentication Endpoints
+
+#### Registration
+
+- Endpoint: `POST /auth/signup`
+- Request DTO:
+
+```typescript
+{
+  email: string;
+  password: string;
+  confirmPassword: string;
+}
+```
+
+- Response: User object with tokens
+- Error Response:
+
+```typescript
+{
+  status: number;
+  message: string;
+  errors?: {
+    field: string;
+    message: string;
+  }[];
+}
+```
+
+#### Login
+
+- Endpoint: `POST /auth/login`
+- Request DTO:
+
+```typescript
+{
+  email: string;
+  password: string;
+}
+```
+
+- Response: User object with tokens
+- Error Response: Same as above
+
+#### Email Verification
+
+- Endpoint: `GET /auth/verify-email`
+- Query Params:
+
+```typescript
+{
+  token: string;
+}
+```
+
+- Response: Success/Error message
+- Error Response: Same as above
+
+#### Password Reset Request
+
+- Endpoint: `POST /auth/forgot-password`
+- Request DTO:
+
+```typescript
+{
+  email: string;
+}
+```
+
+- Response: Success message
+- Error Response: Same as above
+
+#### Password Reset
+
+- Endpoint: `POST /auth/reset-password`
+- Request DTO:
+
+```typescript
+{
+  token: string;
+  newPassword: string;
+  confirmPassword: string;
+}
+```
+
+- Response: Success message
+- Error Response: Same as above
+
+#### Token Refresh
+
+- Endpoint: `POST /auth/refresh-token`
+- Request DTO:
+
+```typescript
+{
+  refreshToken: string;
+}
+```
+
+- Response: New access token
+- Error Response: Same as above
+
+#### Logout
+
+- Endpoint: `POST /auth/logout`
+- Request DTO:
+
+```typescript
+{
+  refreshToken: string;
+}
+```
+
+- Response: Success message
+- Error Response: Same as above
+
+#### OAuth2 Providers
+
+- Endpoint: `GET /auth/oauth2-providers`
+- Response:
+
+```typescript
+{
+  providers: {
+    google: string;
+    github: string;
+  }
+}
+```
+
+### User Management Endpoints
+
+#### Current User Profile
+
+- Endpoint: `GET /users/me`
+- Response:
+
+```typescript
+{
+  id: string;
+  email: string;
+  username: string;
+  role: string;
+  emailVerified: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+```
+
+#### User by ID
+
+- Endpoint: `GET /users/{id}`
+- Response: Same as above
+- Error Response: Same as above
+
+#### Username Update
+
+- Endpoint: `PUT /users/me/username`
+- Request DTO:
+
+```typescript
+{
+  username: string;
+}
+```
+
+- Response: Updated user object
+- Error Response: Same as above
+
+### Common Error Response Structure
+
+```typescript
+{
+  status: number;
+  message: string;
+  errors?: {
+    field: string;
+    message: string;
+  }[];
+  timestamp: string;
+  path: string;
+}
+```
+
+### Error Status Codes
+
+- 400: Bad Request
+- 401: Unauthorized
+- 403: Forbidden
+- 404: Not Found
+- 409: Conflict
+- 422: Unprocessable Entity
+- 429: Too Many Requests
+- 500: Internal Server Error
+
+## OAuth2 Integration
+
+### Supported Providers
+
+1. Google
+2. GitHub
+
+### OAuth2 Flow Implementation
+
+1. Provider URL Retrieval
+
+   - Call `GET /api/auth/oauth2-providers`
+   - Display available providers to user
+
+2. Authentication Flow
+
+   - Redirect user to provider's login page
+   - Handle provider callback
+   - Process authorization code
+   - Store received tokens
+
+3. Token Management
+   - Store access token securely
+   - Implement token refresh mechanism
+   - Handle token expiration
+
+## Security Considerations
+
+### Token Storage
+
+- Use secure storage mechanisms
+- Implement token refresh mechanism
+
+### Input Validation
+
+- Implement client-side validation
+- Sanitize all user inputs
+- Handle validation errors appropriately
+
+### Authentication Pages
+
+1. Signin Page
+
+   - Email input
+   - Password requirements display
+   - Terms and conditions acceptance
+   - OAuth2 provider buttons
+
+2. Login Page
+
+   - Email/password login form
+   - OAuth2 provider buttons
+   - "Forgot Password" link
+   - "Register" link
+
+3. Email Verification Page
+
+   - Verification status display
+   - Resend verification option
+   - Success/error messages
+
+4. Password Reset Pages
+   - Request form
+   - Reset form
+   - Success/error messages
+
+### User Profile Pages
+
+1. Profile View
+   - User information display
+   - Username update form
+   - Security settings
+   - Account deletion option
+
+## State Management
+
+### Required States
+
+1. Authentication State
+
+   - User authentication status
+   - Token information
+   - User profile data
+
+2. UI State
+   - Loading states
+   - Error states
+   - Modal states
+   - Navigation state
+
+## Error Handling
+
+### Error Types
+
+1. Authentication Errors
+
+   - Invalid credentials
+   - Token expiration
+   - OAuth2 errors
+
+2. API Errors
+
+   - Network errors
+   - Validation errors
+   - Rate limit errors
+   - Server errors
+
+3. Real-time Errors
+   - Connection issues
+   - Message delivery failures
+   - Presence update failures
+
+### Error Handling Strategy
+
+- Implement global error boundary
+- Show user-friendly error messages
+- Provide recovery options
+- Log errors appropriately
