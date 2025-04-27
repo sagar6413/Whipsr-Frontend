@@ -10,7 +10,7 @@ const OAuthButtons: React.FC = () => {
   // Backend URL logic remains the same
   const backendBaseUrl =
     process.env.NODE_ENV === "production"
-      ? "http://localhost:8080"
+      ? process.env.NEXT_PUBLIC_API_BASE_URL_OAUTH_PROD
       : process.env.NEXT_PUBLIC_API_BASE_URL_OAUTH_DEV ||
         "http://localhost:8080";
 

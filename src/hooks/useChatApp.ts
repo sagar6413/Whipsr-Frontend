@@ -15,8 +15,8 @@ import {
     InviteCodeResponseData, // Import new type
 } from '../types/chatTypes';
 
-// --- Configuration ---
-const WEBSOCKET_ENDPOINT = process.env.NEXT_PUBLIC_WEBSOCKET_URL || "http://localhost:8080/ws/chat";
+const WEBSOCKET_ENDPOINT = process.env.NODE_ENV === "production" ? process.env.NEXT_PUBLIC_WEBSOCKET_URL_PROD :
+    process.env.NEXT_PUBLIC_WEBSOCKET_URL_DEV || "http://localhost:8080/ws/chat";
 
 // --- WebSocket Endpoints (from backend ChatWebSocketController) ---
 const APP_PREFIX = '/app';
