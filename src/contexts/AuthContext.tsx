@@ -46,32 +46,35 @@ export const AuthContext = createContext<AuthContextType | undefined>(
   undefined
 );
 
+// Define a type for log data to replace 'any'
+type LogData = unknown;
+
 // Enhanced logging function with timestamps and context
 const log = {
-  info: (context: string, message: string, data?: any) => {
+  info: (context: string, message: string, data?: LogData) => {
     console.log(
       `[${new Date().toISOString()}] [AuthContext:${context}] [INFO] ${message}`,
       data || ""
     );
   },
-  warn: (context: string, message: string, data?: any) => {
+  warn: (context: string, message: string, data?: LogData) => {
     console.warn(
       `[${new Date().toISOString()}] [AuthContext:${context}] [WARN] ${message}`,
       data || ""
     );
   },
-  error: (context: string, message: string, data?: any) => {
+  error: (context: string, message: string, data?: LogData) => {
     console.error(
       `[${new Date().toISOString()}] [AuthContext:${context}] [ERROR] ${message}`,
       data || ""
     );
   },
-  debug: (context: string, message: string, data?: any) => {
+  debug: (context: string, message: string, data?: LogData) => {
     console.debug(
       `[${new Date().toISOString()}] [AuthContext:${context}] [DEBUG] ${message}`,
       data || ""
     );
-  }
+  },
 };
 
 // Define props for the provider
@@ -84,12 +87,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   // Track render counts to detect infinite loops
   const renderCount = useRef(0);
   const effectRunCount = useRef(0);
-  
+
   // Track state changes
   const prevUser = useRef<User | null>(null);
   const prevTokens = useRef<Tokens | null>(null);
   const prevIsLoading = useRef<boolean>(true);
-  
+
   const [user, setUser] = useState<User | null>(null);
   const [tokens, setTokens] = useState<Tokens | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true); // Start loading until initial check is done
@@ -97,31 +100,34 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   // Track initialization state
   const isInitialized = useRef(false);
-  
+
   // Log render
   renderCount.current += 1;
   log.debug("render", `Render count: ${renderCount.current}`);
-  
+
   // Log state changes
   useEffect(() => {
     if (prevUser.current !== user) {
-      log.debug("state", `User state changed`, { 
-        before: prevUser.current ? `ID: ${prevUser.current.id}` : "null", 
-        after: user ? `ID: ${user.id}` : "null" 
+      log.debug("state", `User state changed`, {
+        before: prevUser.current ? `ID: ${prevUser.current.id}` : "null",
+        after: user ? `ID: ${user.id}` : "null",
       });
       prevUser.current = user;
     }
-    
+
     if (prevTokens.current !== tokens) {
-      log.debug("state", `Tokens state changed`, { 
-        before: prevTokens.current ? "exists" : "null", 
-        after: tokens ? "exists" : "null" 
+      log.debug("state", `Tokens state changed`, {
+        before: prevTokens.current ? "exists" : "null",
+        after: tokens ? "exists" : "null",
       });
       prevTokens.current = tokens;
     }
-    
+
     if (prevIsLoading.current !== isLoading) {
-      log.debug("state", `isLoading state changed: ${prevIsLoading.current} -> ${isLoading}`);
+      log.debug(
+        "state",
+        `isLoading state changed: ${prevIsLoading.current} -> ${isLoading}`
+      );
       prevIsLoading.current = isLoading;
     }
   });
@@ -146,10 +152,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         log.info("logout", "Backend logout successful");
       } catch (err) {
         const apiError = err as AxiosApiError;
-        log.error("logout", "Backend logout failed, proceeding with client-side cleanup", {
-          status: apiError.response?.status,
-          message: apiError.response?.data?.message,
-        });
+        log.error(
+          "logout",
+          "Backend logout failed, proceeding with client-side cleanup",
+          {
+            status: apiError.response?.status,
+            message: apiError.response?.data?.message,
+          }
+        );
         setError(
           apiError.response?.data || {
             status: 500,
@@ -178,21 +188,24 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       // Check if we have an access token in the header
       const authHeader = api.defaults.headers.common["Authorization"];
-      log.debug("fetchUserProfile", `Authorization header present: ${!!authHeader}`);
-      
+      log.debug(
+        "fetchUserProfile",
+        `Authorization header present: ${!!authHeader}`
+      );
+
       // Expect the wrapped response
       const response = await api.get<UserProfileResponse>("/users/me");
       if (response.data && response.data.success) {
         log.info("fetchUserProfile", "User profile fetched successfully", {
           userId: response.data.data?.id,
-          email: response.data.data?.email
+          email: response.data.data?.email,
         });
         setUser(response.data.data); // Set user from the nested data field
         setError(null);
         return true; // Return success indicator
       } else {
         log.error("fetchUserProfile", "API indicated failure", {
-          message: response.data?.message
+          message: response.data?.message,
         });
         return false; // Return failure indicator
       }
@@ -201,7 +214,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       log.error("fetchUserProfile", "Network/Auth error", {
         status: apiError.response?.status,
         message: apiError.response?.data?.message,
-        error: err
+        error: err,
       });
       return false; // Return failure indicator
     }
@@ -211,10 +224,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   useEffect(() => {
     effectRunCount.current += 1;
     log.info("initializeAuth", `Effect run count: ${effectRunCount.current}`);
-    
+
     // Guard against multiple initializations
     if (isInitialized.current) {
-      log.warn("initializeAuth", "Auth already initialized, skipping initialization");
+      log.warn(
+        "initializeAuth",
+        "Auth already initialized, skipping initialization"
+      );
       return;
     }
 
@@ -225,7 +241,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         const storedAccessToken = localStorage.getItem("accessToken");
         const storedRefreshToken = localStorage.getItem("refreshToken");
 
-        log.debug("initializeAuth", `Access token exists: ${!!storedAccessToken}, Refresh token exists: ${!!storedRefreshToken}`);
+        log.debug(
+          "initializeAuth",
+          `Access token exists: ${!!storedAccessToken}, Refresh token exists: ${!!storedRefreshToken}`
+        );
 
         if (storedAccessToken && storedRefreshToken) {
           log.info("initializeAuth", "Tokens found, setting up auth state");
@@ -233,25 +252,40 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             accessToken: storedAccessToken,
             refreshToken: storedRefreshToken,
           });
-          
+
           // Set auth header for API calls
           log.debug("initializeAuth", "Setting Authorization header");
-          api.defaults.headers.common["Authorization"] = `Bearer ${storedAccessToken}`;
-          
+          api.defaults.headers.common[
+            "Authorization"
+          ] = `Bearer ${storedAccessToken}`;
+
           log.info("initializeAuth", "Attempting to fetch user profile");
           const profileSuccess = await fetchUserProfile();
-          
+
           if (!profileSuccess) {
-            log.warn("initializeAuth", "Failed to fetch profile, performing logout");
+            log.warn(
+              "initializeAuth",
+              "Failed to fetch profile, performing logout"
+            );
             await handleLogout();
           } else {
-            log.info("initializeAuth", "Authentication initialization completed successfully");
+            log.info(
+              "initializeAuth",
+              "Authentication initialization completed successfully"
+            );
           }
         } else {
-          log.info("initializeAuth", "No tokens found, user is not authenticated");
+          log.info(
+            "initializeAuth",
+            "No tokens found, user is not authenticated"
+          );
         }
       } catch (err) {
-        log.error("initializeAuth", "Initialization error, performing logout", err);
+        log.error(
+          "initializeAuth",
+          "Initialization error, performing logout",
+          err
+        );
         await handleLogout();
       } finally {
         isInitialized.current = true;
@@ -259,9 +293,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         setIsLoading(false); // Always set loading to false when initialization is complete
       }
     };
-    
+
     initializeAuth();
-    
+
     // Return empty cleanup function to satisfy hook rules
     return () => {
       log.debug("initializeAuth", "Effect cleanup function called");
@@ -274,20 +308,24 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     setError(null);
     try {
       const response = await authService.login(data);
-      log.info("login", "Login API call successful", { userId: response.user?.id });
-      
+      log.info("login", "Login API call successful", {
+        userId: response.user?.id,
+      });
+
       // Store tokens in localStorage
       localStorage.setItem("accessToken", response.tokens.accessToken);
       localStorage.setItem("refreshToken", response.tokens.refreshToken);
-      
+
       // Update state
       log.debug("login", "Setting user and tokens state");
       setUser(response.user);
       setTokens(response.tokens);
-      
+
       // Set default header for subsequent requests
       log.debug("login", "Setting Authorization header");
-      api.defaults.headers.common["Authorization"] = `Bearer ${response.tokens.accessToken}`;
+      api.defaults.headers.common[
+        "Authorization"
+      ] = `Bearer ${response.tokens.accessToken}`;
     } catch (err) {
       const apiError = err as AxiosApiError;
       log.error("login", "Login failed", {
@@ -316,7 +354,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       // Call the signup service function
       await authService.signup(data);
-      log.info("signup", "Signup API call successful. User needs to verify email.");
+      log.info(
+        "signup",
+        "Signup API call successful. User needs to verify email."
+      );
       // No state changes here, user remains logged out.
     } catch (err) {
       const apiError = err as AxiosApiError;
@@ -344,13 +385,20 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       const profileSuccess = await fetchUserProfile();
       if (!profileSuccess) {
-        log.warn("refreshUserProfile", "Failed to refresh profile, performing logout");
+        log.warn(
+          "refreshUserProfile",
+          "Failed to refresh profile, performing logout"
+        );
         await handleLogout();
       } else {
         log.info("refreshUserProfile", "Profile refreshed successfully");
       }
     } catch (err) {
-      log.error("refreshUserProfile", "Error refreshing profile, performing logout", err);
+      log.error(
+        "refreshUserProfile",
+        "Error refreshing profile, performing logout",
+        err
+      );
       await handleLogout();
     } finally {
       log.info("refreshUserProfile", "Setting isLoading to false");
@@ -368,10 +416,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   // Compute isAuthenticated value
   const isAuthenticated = !!user && !!tokens;
-  
+
   // Log authentication state when it changes
   useEffect(() => {
-    log.info("authState", `Authentication state: ${isAuthenticated ? "Authenticated" : "Not Authenticated"}`);
+    log.info(
+      "authState",
+      `Authentication state: ${
+        isAuthenticated ? "Authenticated" : "Not Authenticated"
+      }`
+    );
   }, [isAuthenticated]);
 
   const contextValue: AuthContextType = {
@@ -389,8 +442,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   };
 
   return (
-    <AuthContext.Provider value={contextValue}>
-      {children}
-    </AuthContext.Provider>
+    <AuthContext.Provider value={contextValue}>{children}</AuthContext.Provider>
   );
 };

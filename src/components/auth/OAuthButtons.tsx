@@ -1,29 +1,18 @@
 "use client";
 
 import React from "react";
-// Removed service/type imports related to fetching providers
+import { motion } from "framer-motion";
 
-// Assuming you have icons for Google, GitHub etc.
-// import { FaGoogle, FaGithub } from 'react-icons/fa';
-
-// Placeholder icons - accept className prop
-const GoogleIcon: React.FC<{ className?: string }> = ({ className }) => (
-  <span className={className}>G</span>
-);
-const GithubIcon: React.FC<{ className?: string }> = ({ className }) => (
-  <span className={className}>GH</span>
-);
+// Import Lucide icons instead of placeholders
+import { Github, Mail, Chrome } from "lucide-react";
 
 const OAuthButtons: React.FC = () => {
-  // No need for provider state, loading, or error state anymore
-
-  // Determine Backend Base URL (similar to api.ts, but only need base)
-  // In production, relative URL might work if served from the same domain/proxy
-  // In development, we need the explicit backend URL.
+  // Backend URL logic remains the same
   const backendBaseUrl =
     process.env.NODE_ENV === "production"
-      ? "" // Use relative path in production (or configure if different domain)
-      : process.env.NEXT_PUBLIC_API_BASE_URL_OAUTH_DEV || "http://localhost:8080"; // Use explicit dev URL
+      ? "http://localhost:8080"
+      : process.env.NEXT_PUBLIC_API_BASE_URL_OAUTH_DEV ||
+        "http://localhost:8080";
 
   const backendOAuthUrl = (provider: string) =>
     `${backendBaseUrl}/oauth2/authorization/${provider}`;
@@ -31,50 +20,110 @@ const OAuthButtons: React.FC = () => {
   const handleOAuthLogin = (provider: string) => {
     const url = backendOAuthUrl(provider);
     console.log(`Redirecting to backend OAuth: ${url}`);
-    window.location.href = url; // Redirect to the full backend endpoint URL
+    window.location.href = url;
   };
 
-  // Basic Tailwind styling - customize as needed
-  const buttonBaseStyle =
-    "flex items-center justify-center w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50";
-  const iconStyle = "mr-2 h-5 w-5";
+  // Animation variants
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.1,
+      },
+    },
+  };
 
-  // We assume Google and GitHub are potentially available.
-  // If the backend doesn't support one, clicking the button will just lead to a 404
-  // on the backend, which is acceptable for this simplified approach.
+  const itemVariants = {
+    hidden: { opacity: 0, y: 10 },
+    visible: {
+      opacity: 1,
+      y: 0,
+      transition: { duration: 0.4 },
+    },
+  };
+
   return (
     <div className="mt-6">
-      <div className="relative">
+      {/* Divider with animation */}
+      <motion.div
+        className="relative"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 0.2, duration: 0.5 }}
+      >
         <div className="absolute inset-0 flex items-center">
-          <div className="w-full border-t border-gray-300"></div>
+          <div className="w-full border-t border-white/10"></div>
         </div>
         <div className="relative flex justify-center text-sm">
-          <span className="px-2 bg-white text-gray-500">Or continue with</span>
+          <span className="px-4 bg-[#1E1E1E] text-gray-400">
+            Or continue with
+          </span>
         </div>
-      </div>
+      </motion.div>
 
-      <div className="mt-6 grid grid-cols-1 gap-3">
+      {/* OAuth Buttons Grid */}
+      <motion.div
+        className="mt-6 grid grid-cols-2 gap-4"
+        variants={containerVariants}
+        initial="hidden"
+        animate="visible"
+      >
         {/* Google Button */}
-        <button
+        <motion.button
+          variants={itemVariants}
+          whileHover={{
+            scale: 1.03,
+            backgroundColor: "rgba(255,255,255,0.12)",
+            transition: { duration: 0.2 },
+          }}
+          whileTap={{ scale: 0.97 }}
           type="button"
           onClick={() => handleOAuthLogin("google")}
-          className={buttonBaseStyle}
+          className="flex items-center justify-center gap-2 px-4 py-3 bg-[#2D2D2D] border border-white/10 rounded-lg text-white hover:shadow-md transition-all duration-300"
         >
-          <GoogleIcon className={iconStyle} />
-          Google
-        </button>
+          <Chrome className="w-5 h-5 text-[#00BFA5]" />
+          <span>Google</span>
+        </motion.button>
 
         {/* GitHub Button */}
-        <button
+        <motion.button
+          variants={itemVariants}
+          whileHover={{
+            scale: 1.03,
+            backgroundColor: "rgba(255,255,255,0.12)",
+            transition: { duration: 0.2 },
+          }}
+          whileTap={{ scale: 0.97 }}
           type="button"
           onClick={() => handleOAuthLogin("github")}
-          className={buttonBaseStyle}
+          className="flex items-center justify-center gap-2 px-4 py-3 bg-[#2D2D2D] border border-white/10 rounded-lg text-white hover:shadow-md transition-all duration-300"
         >
-          <GithubIcon className={iconStyle} />
-          GitHub
-        </button>
-        {/* Add buttons for other providers similarly */}
-      </div>
+          <Github className="w-5 h-5 text-[#00BFA5]" />
+          <span>GitHub</span>
+        </motion.button>
+      </motion.div>
+
+      {/* Optional: Additional auth method button */}
+      <motion.div
+        variants={containerVariants}
+        initial="hidden"
+        animate="visible"
+        className="mt-4"
+      >
+        <motion.button
+          variants={itemVariants}
+          whileHover={{
+            backgroundColor: "rgba(255,255,255,0.08)",
+            transition: { duration: 0.2 },
+          }}
+          type="button"
+          className="flex items-center justify-center w-full gap-2 px-4 py-3 bg-transparent border border-white/10 rounded-lg text-gray-400 hover:text-white transition-all duration-300"
+        >
+          <Mail className="w-4 h-4" />
+          <span className="text-sm">Use magic link instead</span>
+        </motion.button>
+      </motion.div>
     </div>
   );
 };

@@ -1,37 +1,46 @@
+"use client";
+
+import { useAuth } from "@/hooks/useAuth";
+import { navLinks, messages, steps, features, faqs } from "@/data/homePageData";
+
+// Import the new section components
 import Navbar from "@/components/layout/Navbar";
-import Link from "next/link";
+import Hero from "@/components/layout/Hero";
+import HowItWorks from "@/components/layout/HowItWorks";
+import Features from "@/components/layout/Features";
+// import UseCasesCarousel from "@/components/layout/UseCasesCarousel";
+import CallToAction from "@/components/layout/CallToAction";
+import FaqSection from "@/components/layout/FaqSection";
+import Footer from "@/components/layout/Footer";
 
 export default function Home() {
+  const { isAuthenticated, user } = useAuth();
+
+  // State/Effects related to the entire page structure or shared across sections
+  // can remain here if absolutely necessary, but most have been moved.
+
   return (
-    <div className="min-h-screen flex flex-col">
-      <Navbar />
-      <main className="flex-grow flex flex-col items-center justify-center text-center px-4">
-        <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold text-gray-900 mb-4">
-          Welcome to MyApp
-        </h1>
-        <p className="max-w-2xl text-lg sm:text-xl text-gray-600 mb-8">
-          The best place to manage your stuff. Securely and efficiently.
-        </p>
-        <div>
-          {/* Call to action button - Links to signup or dashboard depending on auth state */}
-          {/* We can access auth state here too if needed, but often simpler to just link to signup/login */}
-          <Link
-            href="/signup"
-            className="inline-flex items-center justify-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 mr-4"
-          >
-            Get Started
-          </Link>
-          <Link
-            href="/login"
-            className="inline-flex items-center justify-center px-6 py-3 border border-gray-300 text-base font-medium rounded-md text-indigo-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-          >
-            Log In
-          </Link>
-        </div>
+    // Use arbitrary value for the specific dark background
+    <div className="min-h-screen bg-[#121212] text-white">
+      <Navbar
+        navLinks={navLinks}
+        isAuthenticated={isAuthenticated}
+        user={user}
+      />
+
+      <main>
+        <Hero messages={messages} />
+        <HowItWorks steps={steps} />
+        <Features features={features} />
+        {/* <UseCasesCarousel useCasesData={useCasesCarsole} /> */}
+        {/* UseCases (original small slider) seems unused based on state/JSX,
+            if it was intended, create a component and add it here.
+            Assuming `useCasesCarsole` replaced its purpose. */}
+        <CallToAction />
+        <FaqSection faqs={faqs} />
       </main>
-      <footer className="py-6 text-center text-gray-500 text-sm">
-        &copy; {new Date().getFullYear()} MyApp, Inc. All rights reserved.
-      </footer>
+
+      <Footer navLinks={navLinks} /* Pass other necessary props if needed */ />
     </div>
   );
 }

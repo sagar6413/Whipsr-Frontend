@@ -8,7 +8,7 @@ import {
 // Determine Base URL based on environment
 const baseURL =
   process.env.NODE_ENV === "production"
-    ? process.env.NEXT_PUBLIC_API_BASE_URL_PROD || "[Production URL]/api" // Fallback, ensure NEXT_PUBLIC_API_BASE_URL_PROD is set
+    ? process.env.NEXT_PUBLIC_API_BASE_URL_PROD || "http://localhost:8080/api" // Fallback, ensure NEXT_PUBLIC_API_BASE_URL_PROD is set
     : process.env.NEXT_PUBLIC_API_BASE_URL_DEV || "http://localhost:8080/api"; // Fallback, ensure NEXT_PUBLIC_API_BASE_URL_DEV is set
 
 console.log(`API Base URL: ${baseURL}`); // Log the base URL for debugging
