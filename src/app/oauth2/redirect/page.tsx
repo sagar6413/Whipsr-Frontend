@@ -1,10 +1,11 @@
 "use client";
 
-import React, { useEffect, useState, Suspense } from "react";
+import React, { useEffect, useState, Suspense, useRef } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { ArrowRight, Lock, Shield, ShieldCheck } from "lucide-react";
+import { setTokens } from "@/utils/cookieManager";
 
 // Define animation variants
 const fadeIn = {
@@ -52,26 +53,36 @@ const OAuthRedirectContent: React.FC = () => {
   const [status, setStatus] = useState<Status>("processing");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
+  // Store initial values in refs
+  const initialSearchParams = useRef(searchParams);
+  const initialRouter = useRef(router);
+
   useEffect(() => {
-    const token = searchParams.get("token");
-    const error = searchParams.get("error");
-    const refreshToken = searchParams.get("refreshToken");
+    console.log("useEffect triggered");
+
+    const token = initialSearchParams.current.get("token");
+    const error = initialSearchParams.current.get("error");
+    const refreshToken = initialSearchParams.current.get("refreshToken");
+
+    console.log("Token:", token);
+    console.log("Error:", error);
+    console.log("Refresh Token:", refreshToken);
 
     if (error) {
-      setErrorMessage(
-        decodeURIComponent(error) || "An error occurred during authentication."
-      );
+      console.log("Authentication error detected");
+      setErrorMessage(error || "An error occurred during authentication.");
       setStatus("error");
     } else if (token && refreshToken) {
-      localStorage.setItem("accessToken", token);
-      localStorage.setItem("refreshToken", refreshToken);
-      // Redirect immediately to home page
-      router.push("/chat");
+      console.log(
+        "Authentication successful. Storing tokens and redirecting..."
+      );
+      setTokens(token, refreshToken);
+      initialRouter.current.push("/chat");
     } else {
+      console.log("Invalid authentication response from server");
       setErrorMessage("Invalid authentication response from server.");
       setStatus("error");
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (

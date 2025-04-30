@@ -2,11 +2,6 @@
 
 import React, { useEffect, useState, Suspense, useRef } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import {
-  verifyEmail,
-  resendVerificationEmail,
-} from "../../../services/authService"; // Adjust path
-import { AxiosApiError } from "../../../types/api"; // Adjust path
 import Link from "next/link";
 import { motion } from "framer-motion";
 import {
@@ -17,6 +12,7 @@ import {
   AlertCircle,
   CheckCircle,
 } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
 
 // Define verification status types
 type VerificationStatus = "verifying" | "success" | "error" | "idle";
@@ -45,15 +41,12 @@ const EmailVerificationContent: React.FC = () => {
   const searchParams = useSearchParams();
   const router = useRouter();
   const [status, setStatus] = useState<VerificationStatus>("idle");
-  const [message, setMessage] = useState<string | null>(null);
   const [canResend, setCanResend] = useState<boolean>(false);
-  const [isResending, setIsResending] = useState<boolean>(false);
   const [resendMessage, setResendMessage] = useState<string | null>(null);
   const verificationInitiatedRef = useRef(false);
+  const { verify, resendVerification, loading, error, clearError } = useAuth();
 
   const token = searchParams.get("token");
-  // Optionally get email from params if needed for resend functionality
-  const emailForResend = searchParams.get("email");
 
   useEffect(() => {
     if (verificationInitiatedRef.current) {
@@ -61,11 +54,9 @@ const EmailVerificationContent: React.FC = () => {
     }
 
     if (!token) {
-      if (status === "idle") {
-        setMessage("Verification token is missing or invalid.");
-        setStatus("error");
-        verificationInitiatedRef.current = true;
-      }
+      setStatus("error");
+      verificationInitiatedRef.current = true;
+      setCanResend(false);
       return;
     }
 
@@ -73,64 +64,46 @@ const EmailVerificationContent: React.FC = () => {
 
     const handleVerification = async () => {
       setStatus("verifying");
-      setMessage(null);
       setCanResend(false);
-      try {
-        console.log(`Attempting to verify email with token: ${token}`);
-        const response = await verifyEmail(token);
-        console.log("Email verification response message:", response.message);
+      clearError();
 
-        setMessage(response.message || "Email verified successfully!");
-        setStatus("success");
-        // Automatically redirect to login after a short delay
-        setTimeout(() => {
-          router.push("/login");
-        }, 3000);
-      } catch (error) {
-        const axiosError = error as AxiosApiError;
-        const errorMessage =
-          axiosError.response?.data?.message ||
-          "An error occurred during verification.";
-        setMessage(errorMessage);
-        setStatus("error");
-        // Allow resend if the error indicates an invalid/expired token and we have an email
-        if (
-          emailForResend &&
-          (axiosError.response?.status === 400 ||
-            axiosError.response?.status === 422)
-        ) {
+      console.log(`Attempting to verify email with token: ${token}`);
+      try {
+        const success = await verify(token);
+
+        if (success) {
+          setStatus("success");
+          setTimeout(() => {
+            router.push("/login");
+          }, 3000);
+        } else {
+          setStatus("error");
           setCanResend(true);
         }
+      } catch (err) {
+        // Ensure we handle any exceptions
+        console.error("Verification error:", err);
+        setStatus("error");
+        setCanResend(true);
       }
     };
 
     handleVerification();
-  }, [token, router, emailForResend, status]);
+  }, [token, router, clearError, verify]);
 
   const handleResend = async () => {
-    if (!emailForResend) {
-      setResendMessage(
-        "Email address not available for resending verification."
-      );
+    if (!token) {
+      setResendMessage("Token is missing. Cannot proceed.");
+      router.push("/login");
       return;
     }
-    setIsResending(true);
     setResendMessage(null);
-    try {
-      // Assume resendVerificationEmail service exists
-      const response = await resendVerificationEmail(emailForResend);
-      setResendMessage(
-        response.message || "Verification email sent successfully."
-      );
-      setCanResend(false); // Disable resend after successful attempt
-    } catch (error) {
-      const axiosError = error as AxiosApiError;
-      setResendMessage(
-        axiosError.response?.data?.message ||
-          "Failed to resend verification email."
-      );
-    } finally {
-      setIsResending(false);
+    clearError();
+
+    const success = await resendVerification({ token });
+    if (success) {
+      setResendMessage("Verification email sent successfully.");
+      setCanResend(false);
     }
   };
 
@@ -171,7 +144,7 @@ const EmailVerificationContent: React.FC = () => {
               Verification Successful!
             </motion.h3>
             <motion.p className="text-white/70" variants={fadeIn} custom={0.5}>
-              {message}
+              Your email has been successfully verified.
             </motion.p>
             <motion.p
               className="text-sm text-white/50"
@@ -217,20 +190,20 @@ const EmailVerificationContent: React.FC = () => {
               Verification Failed
             </motion.h3>
             <motion.p className="text-red-400" variants={fadeIn} custom={0.5}>
-              {message}
+              {error || "Verification token is missing or invalid."}
             </motion.p>
             {canResend && (
               <motion.div variants={fadeIn} custom={0.6} className="mt-6">
                 <motion.button
                   onClick={handleResend}
-                  disabled={isResending}
+                  disabled={loading}
                   className={buttonStyle}
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
                 >
                   <span className="relative z-10 flex items-center justify-center">
-                    {isResending ? "Sending..." : "Resend Verification Email"}
-                    {!isResending && (
+                    {loading ? "Sending..." : "Resend Verification Email"}
+                    {!loading && (
                       <motion.span
                         className="ml-2 flex items-center"
                         animate={{ x: [0, 5, 0] }}
@@ -357,7 +330,6 @@ const EmailVerificationContent: React.FC = () => {
           initial="hidden"
           animate="visible"
         >
-          {/* Privacy badge - same as login page */}
           <motion.div
             className="inline-flex items-center space-x-2 bg-white/5 border border-white/10 rounded-full px-4 py-2 mb-6"
             variants={fadeIn}
@@ -378,7 +350,6 @@ const EmailVerificationContent: React.FC = () => {
             variants={fadeIn}
             custom={0.2}
           >
-            {/* Gradient header bar */}
             <motion.div
               className="h-14 bg-gradient-to-r from-[#6200EA]/80 to-[#00BFA5]/80 flex items-center px-4 rounded-t-lg -mx-8 -mt-8 mb-6"
               initial={{ opacity: 0, y: -20 }}
@@ -397,7 +368,6 @@ const EmailVerificationContent: React.FC = () => {
               </div>
             </motion.div>
 
-            {/* Form title */}
             <motion.h1
               className="text-2xl font-bold mb-6 text-white"
               variants={fadeIn}
@@ -421,7 +391,6 @@ const EmailVerificationContent: React.FC = () => {
             {renderStatus()}
           </motion.div>
 
-          {/* Feature list with stagger - same as login page */}
           <motion.div
             className="flex flex-wrap justify-center items-center gap-x-6 gap-y-2 text-sm text-gray-400 mt-6"
             variants={{
@@ -472,13 +441,11 @@ const EmailVerificationContent: React.FC = () => {
   );
 };
 
-// Wrap the component with Suspense for useSearchParams
 const EmailVerificationPage: React.FC = () => {
   return (
     <Suspense
       fallback={
         <section className="relative min-h-screen flex items-center justify-center bg-black">
-          {/* Animated background elements - simplified version */}
           <div className="absolute inset-0 -z-10">
             <div className="absolute top-20 left-10 w-96 h-96 bg-[#6200EA]/20 rounded-full filter blur-3xl" />
             <div className="absolute bottom-20 right-10 w-96 h-96 bg-[#00BFA5]/20 rounded-full filter blur-3xl" />

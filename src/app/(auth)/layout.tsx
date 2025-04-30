@@ -3,6 +3,7 @@
 import React, { useEffect } from "react";
 import { useAuth } from "../../hooks/useAuth"; // Adjust path
 import { useRouter } from "next/navigation";
+import { isAuthenticated } from "@/utils/cookieManager";
 
 // Simple Spinner
 const Spinner = () => (
@@ -15,18 +16,18 @@ export default function AuthLayout({
   // Use React.PropsWithChildren or define type inline
   children: React.ReactNode;
 }) {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { loading } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
     // If finished loading and user IS authenticated, redirect from auth pages
-    if (!isLoading && isAuthenticated) {
-      router.push("/"); // Or your main protected route
+    if (!loading && isAuthenticated()) {
+      router.push("/chat"); // Or your main protected route
     }
-  }, [isLoading, isAuthenticated, router]);
+  }, [loading, router]);
 
   // Show loader while checking auth status
-  if (isLoading) {
+  if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Spinner />

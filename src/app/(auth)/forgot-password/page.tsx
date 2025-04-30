@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { useForm, SubmitHandler } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import Link from "next/link";
@@ -17,9 +17,8 @@ import {
 import {
   ForgotPasswordSchema,
   ForgotPasswordInput,
-} from "../../../lib/validators/authValidators"; // Adjust path
-import { requestPasswordReset } from "../../../services/authService"; // Adjust path
-import { AxiosApiError } from "../../../types/api"; // Adjust path
+} from "../../../utils/authValidators"; // Adjust path
+import { useAuth } from "@/hooks/useAuth";
 
 // Animation variants - same as login page
 const fadeIn = {
@@ -49,15 +48,12 @@ const inputAnimation = {
 };
 
 const ForgotPasswordPage: React.FC = () => {
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
-
+  const { forgotPasswordRequest, loading, error, clearError } = useAuth();
   const {
     register,
     handleSubmit,
     formState: { errors },
-    setError: setFormError,
     reset, // To clear the form on success
   } = useForm<ForgotPasswordInput>({
     resolver: zodResolver(ForgotPasswordSchema),
@@ -66,55 +62,19 @@ const ForgotPasswordPage: React.FC = () => {
     },
   });
 
-  // Clear error/success message on unmount
-  useEffect(() => {
-    return () => {
-      setError(null);
-      setSuccessMessage(null);
-    };
-  }, []);
-
   const onSubmit: SubmitHandler<ForgotPasswordInput> = async (data) => {
-    setIsLoading(true);
-    setError(null);
     setSuccessMessage(null);
-    try {
-      const response = await requestPasswordReset(data);
+    clearError();
+
+    const success = await forgotPasswordRequest(data);
+
+    if (success) {
       setSuccessMessage(
-        response.message ||
-          "Password reset email sent successfully. Please check your inbox."
+        "Password reset email sent successfully. Please check your inbox."
       );
-      reset(); // Clear the form
-    } catch (err) {
-      const axiosError = err as AxiosApiError;
-      const apiError = axiosError.response?.data;
-      if (apiError?.errors) {
-        apiError.errors.forEach((e) => {
-          if (e.field === "email") {
-            setFormError("email", { type: "manual", message: e.message });
-          }
-        });
-        setError("Please correct the errors above."); // General message if field errors exist
-      } else {
-        setError(
-          apiError?.message || "An unknown error occurred. Please try again."
-        );
-      }
-    } finally {
-      setIsLoading(false);
+      reset();
     }
   };
-
-  // Styling to match login page
-  const inputContainerStyle = "relative mb-4";
-  const inputStyle =
-    "w-full px-4 py-3 pl-10 bg-[#2D2D2D] border border-white/10 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#00BFA5] focus:border-transparent transition-all duration-300";
-  const inputIconStyle = "absolute left-3 top-3.5 text-gray-400";
-  const errorTextStyle = "mt-1 text-sm text-red-400";
-  const buttonStyle =
-    "w-full px-6 py-4 mt-4 bg-gradient-to-r from-[#6200EA] to-[#00BFA5] text-white font-semibold rounded-lg hover:shadow-lg hover:shadow-[#6200EA]/20 transition-all";
-  const successMessageStyle =
-    "mb-4 p-3 bg-green-500/20 border border-green-500/30 rounded-lg text-green-400 text-sm";
 
   return (
     <section className="relative min-h-screen flex items-center justify-center pt-8 pb-12 overflow-hidden bg-black">
@@ -251,7 +211,7 @@ const ForgotPasswordPage: React.FC = () => {
             </motion.p>
 
             {/* Error message display */}
-            {error && !errors.email && (
+            {error && Object.keys(errors).length === 0 && (
               <motion.div
                 className="mb-4 p-3 bg-red-500/20 border border-red-500/30 rounded-lg text-red-400 text-sm"
                 initial={{ opacity: 0, y: -10 }}
@@ -264,7 +224,9 @@ const ForgotPasswordPage: React.FC = () => {
             {/* Success message display */}
             {successMessage && (
               <motion.div
-                className={successMessageStyle}
+                className={
+                  "mb-4 p-3 bg-green-500/20 border border-green-500/30 rounded-lg text-green-400 text-sm"
+                }
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
               >
@@ -278,25 +240,29 @@ const ForgotPasswordPage: React.FC = () => {
             <form onSubmit={handleSubmit(onSubmit)}>
               {/* Email Input */}
               <motion.div
-                className={inputContainerStyle}
+                className={"relative mb-4"}
                 variants={inputAnimation}
                 custom={0.4}
               >
-                <Mail className={`w-5 h-5 ${inputIconStyle}`} />
+                <Mail
+                  className={`w-5 h-5 ${"absolute left-3 top-3.5 text-gray-400"}`}
+                />
                 <input
                   id="email"
                   type="email"
                   autoComplete="email"
                   required
-                  className={`${inputStyle} ${
+                  className={`${"w-full px-4 py-3 pl-10 bg-[#2D2D2D] border border-white/10 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#00BFA5] focus:border-transparent transition-all duration-300"} ${
                     errors.email ? "border-red-500" : ""
                   }`}
                   placeholder="Email address"
                   {...register("email")}
-                  disabled={isLoading || !!successMessage}
+                  disabled={loading || !!successMessage}
                 />
                 {errors.email && (
-                  <p className={errorTextStyle}>{errors.email.message}</p>
+                  <p className={"mt-1 text-sm text-red-400"}>
+                    {errors.email.message}
+                  </p>
                 )}
               </motion.div>
 
@@ -309,12 +275,14 @@ const ForgotPasswordPage: React.FC = () => {
               >
                 <button
                   type="submit"
-                  className={buttonStyle}
-                  disabled={isLoading || !!successMessage}
+                  className={
+                    "w-full px-6 py-4 mt-4 bg-gradient-to-r from-[#6200EA] to-[#00BFA5] text-white font-semibold rounded-lg hover:shadow-lg hover:shadow-[#6200EA]/20 transition-all"
+                  }
+                  disabled={loading || !!successMessage}
                 >
                   <span className="relative z-10 flex items-center justify-center">
-                    {isLoading ? "Sending..." : "Send Reset Link"}
-                    {!isLoading && !successMessage && (
+                    {loading ? "Sending..." : "Send Reset Link"}
+                    {!loading && !successMessage && (
                       <motion.span
                         className="ml-2 flex items-center"
                         animate={{ x: [0, 5, 0] }}

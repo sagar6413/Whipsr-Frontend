@@ -1,18 +1,16 @@
 "use client";
 
-import React, { useEffect, useContext } from "react";
+import React, { useEffect, useCallback } from "react";
 import { useForm, SubmitHandler } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { ArrowRight, Lock, Shield, ShieldCheck, Mail, Key } from "lucide-react";
-import {
-  LoginSchema,
-  LoginInput,
-} from "../../../lib/validators/authValidators";
-import { AuthContext } from "../../../contexts/AuthContext";
+import { LoginSchema, LoginInput } from "../../../utils/authValidators";
 import OAuthButtons from "../../../components/auth/OAuthButtons";
+import { useAuth } from "@/hooks/useAuth";
+import { isAuthenticated } from "@/utils/cookieManager";
 
 // Animation variants - same as signup page
 const fadeIn = {
@@ -42,27 +40,15 @@ const inputAnimation = {
 };
 
 const LoginPage: React.FC = () => {
-  const authContext = useContext(AuthContext);
-
-  if (!authContext) {
-    throw new Error("LoginPage must be used within an AuthProvider");
-  }
-
-  const {
-    login,
-    isLoading,
-    error: authError,
-    isAuthenticated,
-    clearError,
-  } = authContext;
-
+  const { signin, error, loading, clearError } = useAuth();
   const router = useRouter();
+  console.log("Loaded", isAuthenticated());
 
   const {
     register,
     handleSubmit,
     formState: { errors },
-    setError: setFormError,
+    reset,
   } = useForm<LoginInput>({
     resolver: zodResolver(LoginSchema),
     defaultValues: {
@@ -71,46 +57,26 @@ const LoginPage: React.FC = () => {
     },
   });
 
+  const redirectToChat = useCallback(() => {
+    router.push("/chat");
+  }, [router]);
+
   // Redirect if already authenticated
   useEffect(() => {
-    if (isAuthenticated) {
-      router.push("/chat");
+    if (isAuthenticated()) {
+      redirectToChat();
     }
-  }, [isAuthenticated, router]);
-
-  // Clear auth context error when component unmounts
-  useEffect(() => {
-    return () => {
-      clearError();
-    };
-  }, [clearError]);
-
-  // Handle API errors from context
-  useEffect(() => {
-    if (authError) {
-      if (authError.errors) {
-        authError.errors.forEach((err) => {
-          if (err.field === "email" || err.field === "password") {
-            setFormError(err.field as "email" | "password", {
-              type: "manual",
-              message: err.message,
-            });
-          } else {
-            console.warn("Unhandled API field error:", err);
-          }
-        });
-      }
-    }
-  }, [authError, setFormError]);
+  }, [redirectToChat]);
 
   const onSubmit: SubmitHandler<LoginInput> = async (data) => {
     clearError();
-    try {
-      await login(data);
-      console.log("Login successful");
+
+    const success = await signin(data);
+    if (success) {
+      console.log("Login is successfull :-)");
+      console.log(isAuthenticated);
+      reset();
       router.push("/chat");
-    } catch (err) {
-      console.error("Login page onSubmit caught error:", err);
     }
   };
 
@@ -261,13 +227,13 @@ const LoginPage: React.FC = () => {
             </motion.h1>
 
             {/* Error message display */}
-            {authError && !authError.errors && (
+            {error && Object.keys(errors).length === 0 && (
               <motion.div
                 className="mb-4 p-3 bg-red-500/20 border border-red-500/30 rounded-lg text-red-400 text-sm"
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
               >
-                {authError.message}
+                {error}
               </motion.div>
             )}
 
@@ -342,11 +308,11 @@ const LoginPage: React.FC = () => {
                 <button
                   type="submit"
                   className={buttonStyle}
-                  disabled={isLoading}
+                  disabled={loading}
                 >
                   <span className="relative z-10 flex items-center justify-center">
-                    {isLoading ? "Signing in..." : "Sign in"}
-                    {!isLoading && (
+                    {loading ? "Signing in..." : "Sign in"}
+                    {!loading && (
                       <motion.span
                         className="ml-2 flex items-center"
                         animate={{ x: [0, 5, 0] }}

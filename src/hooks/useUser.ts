@@ -1,108 +1,89 @@
-import { useAuth } from "./useAuth";
-import { User } from "../types/api"; // Adjust path as needed
-import { useRef, useEffect } from "react";
+import { useState, useCallback } from "react";
+import { getCurrentUserProfile, updateUsername, deleteAccount } from "@/services/userService";
+import { User, UsernameUpdateRequest } from "@/types/types";
+import { log } from "@/utils/logger";
+import { isAxiosApiError } from "@/services/axiosInstance";
+import { useUserStore } from "@/store/userStore";
 
-// Define a type for log data to replace 'any'
-type LogData = unknown;
+export const useUser = () => {
+    const [loading, setLoading] = useState<boolean>(false);
+    const [error, setError] = useState<string | null>(null);
+    const { setUser, clearUser } = useUserStore();
 
-// Enhanced logging function with timestamps and context
-const log = {
-  info: (context: string, message: string, data?: LogData) => {
-    console.log(
-      `[${new Date().toISOString()}] [useUser:${context}] [INFO] ${message}`,
-      data || ""
-    );
-  },
-  warn: (context: string, message: string, data?: LogData) => {
-    console.warn(
-      `[${new Date().toISOString()}] [useUser:${context}] [WARN] ${message}`,
-      data || ""
-    );
-  },
-  error: (context: string, message: string, data?: LogData) => {
-    console.error(
-      `[${new Date().toISOString()}] [useUser:${context}] [ERROR] ${message}`,
-      data || ""
-    );
-  },
-  debug: (context: string, message: string, data?: LogData) => {
-    console.debug(
-      `[${new Date().toISOString()}] [useUser:${context}] [DEBUG] ${message}`,
-      data || ""
-    );
-  }
-};
+    const handleError = useCallback((functionName: string, error: unknown) => {
+        const errorMessage = isAxiosApiError(error) ?
+            error.response?.data?.message || error.message :
+            error instanceof Error ? error.message : 'An unknown error occurred';
 
-/**
- * Custom hook to access user-specific data from the authentication context.
- * Provides the user object and the authentication status.
- *
- * @returns An object containing the user and isAuthenticated status.
- */
-export const useUser = (): { user: User | null; isAuthenticated: boolean } => {
-  // Track hook usage counts
-  const hookUsageCount = useRef(0);
+        log.error(`useUser.${functionName}`, "Operation failed",
+            isAxiosApiError(error) ? error.response?.data : error);
 
-  // Track component identity to detect potential multiple instances
-  const componentId = useRef(`user-hook-${Math.random().toString(36).substring(2, 9)}`);
+        setError(errorMessage);
+        return false;
+    }, []);
 
-  // Track previous values to detect changes
-  const prevValues = useRef<{
-    isAuthenticated: boolean;
-    userId: string | null;
-  }>({
-    isAuthenticated: false,
-    userId: null
-  });
+    const fetchUserProfile = useCallback(async (): Promise<User | null> => {
+        setLoading(true);
+        setError(null);
+        log.debug("useUser.fetchUserProfile", "Fetching user profile");
 
-  // Get auth data from the parent hook
-  const { user, isAuthenticated } = useAuth();
+        try {
+            const userData = await getCurrentUserProfile();
+            setUser(userData);
+            log.info("useUser.fetchUserProfile", "User profile loaded successfully");
+            return userData;
+        } catch (err) {
+            handleError("fetchUserProfile", err);
+            return null;
+        } finally {
+            setLoading(false);
+        }
+    }, [setUser, handleError]);
 
-  // Increment usage count on each render
-  hookUsageCount.current += 1;
+    const changeUsername = useCallback(async (data: UsernameUpdateRequest): Promise<boolean> => {
+        setLoading(true);
+        setError(null);
+        log.debug("useUser.changeUsername", "Updating username");
 
-  // Log hook usage
-  log.debug("hook", `useUser hook called, usage count: ${hookUsageCount.current}, component ID: ${componentId.current}`);
+        try {
+            const updatedUser = await updateUsername(data);
+            setUser(updatedUser);
+            log.info("useUser.changeUsername", "Username updated successfully");
+            return true;
+        } catch (err) {
+            return handleError("changeUsername", err);
+        } finally {
+            setLoading(false);
+        }
+    }, [setUser, handleError]);
 
-  // Log when user data changes
-  useEffect(() => {
-    const userId = user?.id ? String(user.id) : null;
-    const prev = prevValues.current;
 
-    // Check for authentication state change
-    if (prev.isAuthenticated !== isAuthenticated) {
-      log.info("state", `Authentication state changed: ${prev.isAuthenticated} -> ${isAuthenticated}`);
-    }
+    const removeAccount = useCallback(async (): Promise<boolean> => {
+        setLoading(true);
+        setError(null);
+        log.debug("useUser.removeAccount", "Deleting account");
 
-    // Check for user ID change
-    if (prev.userId !== userId) {
-      log.info("state", `User changed: ${prev.userId || 'null'} -> ${userId || 'null'}`);
+        try {
+            await deleteAccount();
+            clearUser();
+            log.info("useUser.removeAccount", "Account deleted successfully");
+            return true;
+        } catch (err) {
+            return handleError("removeAccount", err);
+        } finally {
+            setLoading(false);
+        }
+    }, [clearUser, handleError]);
 
-      // Log detailed user info on change
-      if (user) {
-        log.debug("user", "User data details", {
-          id: user.id,
-          email: user.email,
-          // Include other user properties you want to monitor
-          // but don't log sensitive info
-        });
-      }
-    }
+    const clearError = useCallback(() => setError(null), []);
 
-    // Update reference to current values
-    prevValues.current = {
-      isAuthenticated,
-      userId: userId
+    return {
+        user: useUserStore(state => state.user),
+        fetchUserProfile,
+        changeUsername,
+        removeAccount,
+        loading,
+        error,
+        clearError
     };
-  }, [user, isAuthenticated]);
-
-  // Log when a component unmounts while using this hook
-  useEffect(() => {
-    const currentComponentId = componentId.current; // Copy the current value to a local variable
-    return () => {
-      log.debug("lifecycle", `Component using useUser is unmounting, component ID: ${currentComponentId}`);
-    };
-  }, []);
-
-  return { user, isAuthenticated };
 };

@@ -1,138 +1,223 @@
-import { useContext, useEffect, useRef } from "react";
-import { AuthContext, AuthContextType } from "../contexts/AuthContext"; // Adjust path as needed
+import {
+  login,
+  signupApi,
+  logout,
+  verifyEmail,
+  resetPassword,
+  getOauthProviders,
+  resendVerificationEmail,
+  forgotPassword,
+} from "@/services/authService";
+import { useUserStore } from "@/store/userStore";
+import {
+  LoginRequest,
+  SignupRequest,
+  PasswordResetRequest,
+  PasswordUpdateRequest,
+  ResendVerificationRequest,
+  OauthProvidersResponseDto,
+} from "@/types/types";
+import { setTokens, clearTokens, isAuthenticated } from "@/utils/cookieManager";
+import { log } from "@/utils/logger";
+import Router from "next/router";
+import { useState, useCallback } from "react";
+import { isAxiosApiError } from "@/services/axiosInstance";
 
-// Define a type for log data to replace 'any'
-type LogData = unknown;
+export const useAuth = () => {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const { fetchUser, clearUser } = useUserStore();
 
-// Enhanced logging function with timestamps and context
-const log = {
-  info: (context: string, message: string, data?: LogData) => {
-    console.log(
-      `[${new Date().toISOString()}] [useAuth:${context}] [INFO] ${message}`,
-      data || ""
+  const handleError = useCallback((functionName: string, error: unknown) => {
+    const errorMessage = isAxiosApiError(error)
+      ? error.response?.data?.message || error.message
+      : error instanceof Error
+      ? error.message
+      : "An unknown error occurred";
+
+    log.error(
+      `useAuth.${functionName}`,
+      "Operation failed",
+      isAxiosApiError(error) ? error.response?.data : error
     );
-  },
-  warn: (context: string, message: string, data?: LogData) => {
-    console.warn(
-      `[${new Date().toISOString()}] [useAuth:${context}] [WARN] ${message}`,
-      data || ""
-    );
-  },
-  error: (context: string, message: string, data?: LogData) => {
-    console.error(
-      `[${new Date().toISOString()}] [useAuth:${context}] [ERROR] ${message}`,
-      data || ""
-    );
-  },
-  debug: (context: string, message: string, data?: LogData) => {
-    console.debug(
-      `[${new Date().toISOString()}] [useAuth:${context}] [DEBUG] ${message}`,
-      data || ""
-    );
-  }
-};
 
-/**
- * Custom hook to access the authentication context.
- * Provides authentication status, user data, tokens, loading/error states,
- * and methods for login, logout, and signup.
- *
- * @throws Will throw an error if used outside of an AuthProvider.
- * @returns The authentication context value.
- */
-export const useAuth = (): AuthContextType => {
-  // Track hook usage counts
-  const hookUsageCount = useRef(0);
-
-  // Track previous auth states to detect changes
-  const prevAuthState = useRef<{
-    isAuthenticated: boolean;
-    isLoading: boolean;
-    userId: string | null;
-  }>({
-    isAuthenticated: false,
-    isLoading: true,
-    userId: null
-  });
-
-  // Get the auth context
-  const context = useContext(AuthContext);
-
-  // Increment usage count on each render
-  hookUsageCount.current += 1;
-
-  // Log hook usage
-  log.debug("hook", `useAuth hook called, usage count: ${hookUsageCount.current}`);
-
-  if (context === undefined) {
-    log.error("context", "useAuth hook used outside of AuthProvider");
-    throw new Error("useAuth must be used within an AuthProvider");
-  }
-
-  // Extract current state
-  const { isAuthenticated, isLoading, user } = context;
-  const userId = user?.id ? String(user.id) : null;
-
-  // Compare with previous state and log meaningful changes
-  useEffect(() => {
-    const prev = prevAuthState.current;
-
-    // Check for authentication state change
-    if (prev.isAuthenticated !== isAuthenticated) {
-      log.info("state", `Authentication state changed: ${prev.isAuthenticated} -> ${isAuthenticated}`);
-    }
-
-    // Check for loading state change
-    if (prev.isLoading !== isLoading) {
-      log.info("state", `Loading state changed: ${prev.isLoading} -> ${isLoading}`);
-    }
-
-    // Check for user ID change
-    if (prev.userId !== userId) {
-      log.info("state", `User changed: ${prev.userId || 'null'} -> ${userId || 'null'}`);
-    }
-
-    // Update reference to current state
-    prevAuthState.current = {
-      isAuthenticated,
-      isLoading,
-      userId
-    };
-  }, [isAuthenticated, isLoading, userId]);
-
-  // Log when a component unmounts while using this hook
-  useEffect(() => {
-    return () => {
-      log.debug("lifecycle", "Component using useAuth is unmounting");
-    };
+    setError(errorMessage);
+    return false;
   }, []);
 
-  // Return the enhanced context with additional tracking
-  return {
-    ...context,
-    login: async (data) => {
-      log.info("action", "login called", { email: data.email });
-      await context.login(data);
+  const signin = useCallback(
+    async (data: LoginRequest) => {
+      setLoading(true);
+      setError(null);
+      log.debug("useAuth.signin", "Starting signin process", {
+        email: data.email,
+      });
+
+      try {
+        console.log("Before login isAuthenticated()", isAuthenticated());
+        const response = await login(data);
+        setTokens(response.accessToken, response.refreshToken);
+        console.log("After login", isAuthenticated());
+        await fetchUser();
+        log.info("useAuth.signin", "User authenticated successfully");
+
+        return true;
+      } catch (err) {
+        return handleError("signin", err);
+      } finally {
+        setLoading(false);
+      }
     },
-    logout: async () => {
-      log.info("action", "logout called");
-      await context.logout();
+    [fetchUser, handleError]
+  );
+
+  const signup = useCallback(
+    async (data: SignupRequest) => {
+      setLoading(true);
+      setError(null);
+      log.debug("useAuth.signup", "Starting signup process", {
+        email: data.email,
+      });
+
+      try {
+        await signupApi(data);
+        return true;
+      } catch (err) {
+        return handleError("signup", err);
+      } finally {
+        setLoading(false);
+      }
     },
-    signup: async (data) => {
-      log.info("action", "signup called", { email: data.email });
-      await context.signup(data);
-    },
-    refreshUserProfile: async () => {
-      log.info("action", "refreshUserProfile called");
-      await context.refreshUserProfile();
-    },
-    updateLocalUser: (updatedUser) => {
-      log.info("action", "updateLocalUser called", { userId: updatedUser.id });
-      context.updateLocalUser(updatedUser);
-    },
-    clearError: () => {
-      log.info("action", "clearError called");
-      context.clearError();
+    [handleError]
+  );
+
+  const signout = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    log.debug("useAuth.signout", "Starting logout process");
+
+    try {
+      await logout();
+      clearTokens();
+      clearUser();
+
+      Router.push("/login");
+      return true;
+    } catch (err) {
+      return handleError("signout", err);
+    } finally {
+      setLoading(false);
     }
+  }, [clearUser, handleError]);
+
+  const verify = useCallback(
+    async (token: string) => {
+      setLoading(true);
+      setError(null);
+      log.debug("useAuth.verify", "Starting email verification");
+
+      try {
+        await verifyEmail(token);
+        return true;
+      } catch (err) {
+        Router.push("/verification-failed");
+        return handleError("verify", err);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [handleError]
+  );
+
+  const forgotPasswordRequest = useCallback(
+    async (data: PasswordResetRequest) => {
+      setLoading(true);
+      setError(null);
+      log.debug("useAuth.forgotPasswordRequest", "Requesting password reset", {
+        email: data.email,
+      });
+
+      try {
+        await forgotPassword(data);
+        return true;
+      } catch (err) {
+        return handleError("forgotPasswordRequest", err);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [handleError]
+  );
+
+  const resetPasswordWithToken = useCallback(
+    async (data: PasswordUpdateRequest) => {
+      setLoading(true);
+      setError(null);
+      log.debug("useAuth.resetPasswordWithToken", "Resetting password");
+
+      try {
+        await resetPassword(data);
+        return true;
+      } catch (err) {
+        return handleError("resetPasswordWithToken", err);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [handleError]
+  );
+
+  const resendVerification = useCallback(
+    async (data: ResendVerificationRequest) => {
+      setLoading(true);
+      setError(null);
+      log.debug(
+        "useAuth.resendVerification",
+        "Requesting new verification email"
+      );
+
+      try {
+        await resendVerificationEmail(data);
+        return true;
+      } catch (err) {
+        return handleError("resendVerification", err);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [handleError]
+  );
+
+  const getOAuthProviders =
+    useCallback(async (): Promise<OauthProvidersResponseDto | null> => {
+      setLoading(true);
+      setError(null);
+      log.debug("useAuth.getOAuthProviders", "Fetching OAuth providers");
+
+      try {
+        const providers = await getOauthProviders();
+        return providers;
+      } catch (err) {
+        handleError("getOAuthProviders", err);
+        return null;
+      } finally {
+        setLoading(false);
+      }
+    }, [handleError]);
+
+  const clearError = useCallback(() => setError(null), []);
+
+  return {
+    signin,
+    signup,
+    signout,
+    verify,
+    forgotPasswordRequest,
+    resetPasswordWithToken,
+    resendVerification,
+    getOAuthProviders,
+    clearError,
+    loading,
+    error,
   };
 };

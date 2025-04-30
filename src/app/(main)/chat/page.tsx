@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { useAuth } from "@/hooks/useAuth";
 import { useChatApp } from "@/hooks/useChatApp";
 import { ChatMessageData, ChatState, MessageType } from "@/types/chatTypes";
 import { motion, AnimatePresence } from "framer-motion";
@@ -11,15 +10,17 @@ import {
   LinkIcon,
   Loader2,
   LogIn,
-  MessageSquareHeart, // Using Loader2 for a cleaner spinner
-  MessageSquarePlus, // Icon for finding partner
+  MessageSquareHeart,
+  MessageSquarePlus,
   SendHorizontal,
-  Share2, // Alternative Send icon
+  Share2,
   Smile,
-  WifiOff, // Icon for disconnected
-  X, // Icon for closing emoji picker/leaving chat
+  WifiOff,
+  X,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { useUserStore } from "@/store/userStore";
+import { getAccessToken, isAuthenticated } from "@/utils/cookieManager";
 
 // Define constant outside component if used in multiple places
 const INVITE_CODE_LENGTH = 6;
@@ -91,12 +92,16 @@ const systemMessageVariant = {
 // --- Component ---
 
 export default function ChatApp() {
-  const { tokens, user } = useAuth();
+  console.log(
+    "INSIDE CHAT PAGE..INSIDE CHAT PAGE..INSIDE CHAT PAGE..INSIDE CHAT PAGE..INSIDE CHAT PAGE.."
+  );
+
+  const { user } = useUserStore();
+
   const router = useRouter();
-
-  const authToken = tokens?.accessToken || null;
-
+  const authToken = getAccessToken() || null;
   const { state, actions } = useChatApp(authToken);
+
   const {
     chatState,
     messages,
@@ -140,10 +145,10 @@ export default function ChatApp() {
   }, [router]);
 
   useEffect(() => {
-    if (tokens === null) {
+    if (authToken === null) {
       navigateToLogin();
     }
-  }, [tokens, navigateToLogin]);
+  }, [authToken, navigateToLogin]);
 
   // Focus input when chat starts
   useEffect(() => {
@@ -151,6 +156,10 @@ export default function ChatApp() {
       inputRef.current.focus();
     }
   }, [chatState]);
+
+  useEffect(() => {
+    console.log("Hahahahha", isAuthenticated());
+  }, []);
 
   // Close emoji picker on outside click
   useEffect(() => {
@@ -172,14 +181,14 @@ export default function ChatApp() {
   const handleEmojiClick = (emoji: string) => {
     setNewMessage((prev) => prev + emoji);
     setShowEmojiPicker(false);
-    inputRef.current?.focus(); // Refocus input after selecting emoji
+    inputRef.current?.focus();
   };
 
   const handleSendMessage = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!newMessage.trim()) return;
     sendMessage();
-    setShowEmojiPicker(false); // Close picker on send
+    setShowEmojiPicker(false);
   };
 
   const handleCreateInvite = () => {
@@ -192,7 +201,7 @@ export default function ChatApp() {
     e.preventDefault();
     if (chatState === ChatState.IDLE && isConnected && inviteCodeInput.trim()) {
       joinWithInvite(inviteCodeInput.trim());
-      setInviteCodeInput(""); // Clear input after submission
+      setInviteCodeInput("");
     }
   };
 

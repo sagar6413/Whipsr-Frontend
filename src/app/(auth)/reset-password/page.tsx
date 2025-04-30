@@ -17,9 +17,8 @@ import {
 import {
   ResetPasswordSchema,
   ResetPasswordInput,
-} from "../../../lib/validators/authValidators"; // Adjust path
-import { resetPassword } from "../../../services/authService"; // Adjust path
-import { AxiosApiError } from "../../../types/api"; // Adjust path
+} from "../../../utils/authValidators"; // Adjust path
+import { useAuth } from "@/hooks/useAuth";
 
 // Animation variants - same as login page
 const fadeIn = {
@@ -63,33 +62,28 @@ const Spinner = () => (
 const ResetPasswordContent: React.FC = () => {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+
+  const [tokenError, setTokenError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [token, setToken] = useState<string | null>(null);
-  const initialCheckDoneRef = useRef(false);
+  const { resetPasswordWithToken, loading, error, clearError } = useAuth();
+
+  const initialSearchParams = useRef(searchParams);
 
   useEffect(() => {
-    if (initialCheckDoneRef.current) {
-      return;
-    }
-    initialCheckDoneRef.current = true;
+    const token = initialSearchParams.current.get("token");
 
-    const urlToken = searchParams.get("token");
-    if (!urlToken) {
-      setError("Password reset token is missing or invalid.");
-      // Optionally redirect
-      // router.push('/login');
+    if (!token) {
+      setTokenError("Password reset token is missing or invalid.");
     } else {
-      setToken(urlToken);
+      setToken(token);
     }
-  }, [searchParams, router]);
+  }, []);
 
   const {
     register,
     handleSubmit,
     formState: { errors },
-    setError: setFormError,
     reset,
   } = useForm<ResetPasswordInput>({
     resolver: zodResolver(ResetPasswordSchema),
@@ -99,70 +93,27 @@ const ResetPasswordContent: React.FC = () => {
     },
   });
 
-  // Clear error/success message on unmount
-  useEffect(() => {
-    return () => {
-      setError(null);
-      setSuccessMessage(null);
-    };
-  }, []);
-
   const onSubmit: SubmitHandler<ResetPasswordInput> = async (data) => {
     if (!token) {
-      setError("Password reset token is missing. Cannot proceed.");
+      setTokenError("Password reset token is missing. Cannot proceed.");
       return;
     }
-    setIsLoading(true);
-    setError(null);
     setSuccessMessage(null);
-    try {
-      const payload = { ...data, token };
-      const response = await resetPassword(payload);
-      setSuccessMessage(
-        response.message || "Password has been reset successfully."
-      );
-      reset();
-      // Redirect to login after a delay
-      setTimeout(() => {
-        router.push("/login");
-      }, 3000);
-    } catch (err) {
-      const axiosError = err as AxiosApiError;
-      const apiError = axiosError.response?.data;
-      if (apiError?.errors) {
-        apiError.errors.forEach((e) => {
-          if (e.field === "newPassword" || e.field === "confirmPassword") {
-            setFormError(e.field as "newPassword" | "confirmPassword", {
-              type: "manual",
-              message: e.message,
-            });
-          } else if (e.field === "token") {
-            // Handle invalid token error specifically
-            setError(e.message || "Invalid or expired password reset token.");
-          }
-        });
-        if (!error && errors) setError("Please correct the errors above."); // Set general error only if token error wasn't set
-      } else {
-        setError(
-          apiError?.message || "An unknown error occurred. Please try again."
-        );
-      }
-    } finally {
-      setIsLoading(false);
+    clearError();
+    setTokenError(null);
+
+    const payload = { ...data, token };
+    const success = await resetPasswordWithToken(payload);
+
+    if (success) {
+      setSuccessMessage("Password has been reset successfully.");
     }
+    reset();
+    router.push("/login");
   };
 
-  // Styling - matching login page
-  const inputContainerStyle = "relative mb-4";
-  const inputStyle =
-    "w-full px-4 py-3 pl-10 bg-[#2D2D2D] border border-white/10 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#00BFA5] focus:border-transparent transition-all duration-300";
-  const inputIconStyle = "absolute left-3 top-3.5 text-gray-400";
-  const errorTextStyle = "mt-1 text-sm text-red-400";
-  const buttonStyle =
-    "w-full px-6 py-4 mt-4 bg-gradient-to-r from-[#6200EA] to-[#00BFA5] text-white font-semibold rounded-lg hover:shadow-lg hover:shadow-[#6200EA]/20 transition-all";
-
-  // Show error if token is invalid from the start
-  if (!token && error) {
+  // Show tokenError if token is invalid from the start
+  if (!token && tokenError) {
     return (
       <section className="relative min-h-screen flex items-center justify-center pt-8 pb-12 overflow-hidden bg-black">
         {/* Animated background elements - same as login page */}
@@ -248,7 +199,7 @@ const ResetPasswordContent: React.FC = () => {
               <Lock className="w-8 h-8 text-red-400" />
             </motion.div>
             <h3 className="text-xl font-semibold text-white">Invalid Link</h3>
-            <p className="text-red-400 mt-2">{error}</p>
+            <p className="text-red-400 mt-2">{tokenError}</p>
             <div className="mt-6 space-y-3">
               <Link
                 href="/forgot-password"
@@ -454,8 +405,20 @@ const ResetPasswordContent: React.FC = () => {
               </motion.div>
             )}
 
-            {/* Error message display */}
-            {error && !successMessage && (
+            {tokenError &&
+              Object.keys(errors).length === 0 &&
+              !error &&
+              !successMessage && (
+                <motion.div
+                  className="mb-4 p-3 bg-red-500/20 border border-red-500/30 rounded-lg text-red-400 text-sm"
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                >
+                  {tokenError}
+                </motion.div>
+              )}
+
+            {error && Object.keys(errors).length === 0 && !tokenError && (
               <motion.div
                 className="mb-4 p-3 bg-red-500/20 border border-red-500/30 rounded-lg text-red-400 text-sm"
                 initial={{ opacity: 0, y: -10 }}
@@ -468,49 +431,55 @@ const ResetPasswordContent: React.FC = () => {
             <form onSubmit={handleSubmit(onSubmit)}>
               {/* New Password Input */}
               <motion.div
-                className={inputContainerStyle}
+                className={"relative mb-4"}
                 variants={inputAnimation}
                 custom={0.4}
               >
-                <Key className={`w-5 h-5 ${inputIconStyle}`} />
+                <Key
+                  className={`w-5 h-5 ${"absolute left-3 top-3.5 text-gray-400"}`}
+                />
                 <input
                   id="newPassword"
                   type="password"
                   autoComplete="new-password"
                   required
-                  className={`${inputStyle} ${
+                  className={`${"w-full px-4 py-3 pl-10 bg-[#2D2D2D] border border-white/10 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#00BFA5] focus:border-transparent transition-all duration-300"} ${
                     errors.newPassword ? "border-red-500" : ""
                   }`}
                   placeholder="New Password (min. 8 characters)"
                   {...register("newPassword")}
-                  disabled={isLoading || !!successMessage}
+                  disabled={loading || !!successMessage}
                 />
                 {errors.newPassword && (
-                  <p className={errorTextStyle}>{errors.newPassword.message}</p>
+                  <p className={"mt-1 text-sm text-red-400"}>
+                    {errors.newPassword.message}
+                  </p>
                 )}
               </motion.div>
 
               {/* Confirm Password Input */}
               <motion.div
-                className={inputContainerStyle}
+                className={"relative mb-4"}
                 variants={inputAnimation}
                 custom={0.5}
               >
-                <ShieldCheck className={`w-5 h-5 ${inputIconStyle}`} />
+                <ShieldCheck
+                  className={`w-5 h-5 ${"absolute left-3 top-3.5 text-gray-400"}`}
+                />
                 <input
                   id="confirmPassword"
                   type="password"
                   autoComplete="new-password"
                   required
-                  className={`${inputStyle} ${
+                  className={`${"w-full px-4 py-3 pl-10 bg-[#2D2D2D] border border-white/10 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#00BFA5] focus:border-transparent transition-all duration-300"} ${
                     errors.confirmPassword ? "border-red-500" : ""
                   }`}
                   placeholder="Confirm New Password"
                   {...register("confirmPassword")}
-                  disabled={isLoading || !!successMessage}
+                  disabled={loading || !!successMessage}
                 />
                 {errors.confirmPassword && (
-                  <p className={errorTextStyle}>
+                  <p className={"mt-1 text-sm text-red-400"}>
                     {errors.confirmPassword.message}
                   </p>
                 )}
@@ -525,12 +494,14 @@ const ResetPasswordContent: React.FC = () => {
               >
                 <button
                   type="submit"
-                  className={buttonStyle}
-                  disabled={isLoading || !!successMessage}
+                  className={
+                    "w-full px-6 py-4 mt-4 bg-gradient-to-r from-[#6200EA] to-[#00BFA5] text-white font-semibold rounded-lg hover:shadow-lg hover:shadow-[#6200EA]/20 transition-all"
+                  }
+                  disabled={loading || !!successMessage}
                 >
                   <span className="relative z-10 flex items-center justify-center">
-                    {isLoading ? "Resetting Password..." : "Reset Password"}
-                    {!isLoading && (
+                    {loading ? "Resetting Password..." : "Reset Password"}
+                    {!loading && (
                       <motion.span
                         className="ml-2 flex items-center"
                         animate={{ x: [0, 5, 0] }}

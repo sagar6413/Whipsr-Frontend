@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect } from "react";
+import React, { useCallback, useEffect } from "react";
 import { useForm, SubmitHandler } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import Link from "next/link";
@@ -15,12 +15,10 @@ import {
   Mail,
   Key,
 } from "lucide-react";
-import {
-  SignupSchema,
-  SignupInput,
-} from "../../../lib/validators/authValidators"; // Adjust path
+import { SignupSchema, SignupInput } from "../../../utils/authValidators"; // Adjust path
 import { useAuth } from "../../../hooks/useAuth"; // Adjust path
 import OAuthButtons from "../../../components/auth/OAuthButtons"; // Adjust path
+import { isAuthenticated } from "@/utils/cookieManager";
 
 // Animation variants
 const fadeIn = {
@@ -50,14 +48,14 @@ const inputAnimation = {
 };
 
 const SignupPage: React.FC = () => {
-  const { signup, isLoading, error, isAuthenticated, clearError } = useAuth();
+  const { signup, error, loading, clearError } = useAuth();
   const router = useRouter();
 
   const {
     register,
     handleSubmit,
     formState: { errors },
-    setError: setFormError,
+    reset,
   } = useForm<SignupInput>({
     resolver: zodResolver(SignupSchema),
     defaultValues: {
@@ -69,70 +67,28 @@ const SignupPage: React.FC = () => {
       acceptTerms: false,
     },
   });
+  const redirectToChat = useCallback(() => {
+    router.push("/");
+  }, [router]);
 
   // Redirect if already authenticated
   useEffect(() => {
-    if (isAuthenticated) {
-      router.push("/"); // Adjust target route
+    if (isAuthenticated()) {
+      redirectToChat();
     }
-  }, [isAuthenticated, router]);
-
-  // Clear auth context error when component unmounts
-  useEffect(() => {
-    return () => {
-      clearError();
-    };
-  }, [clearError]);
-
-  // Handle API errors from context
-  useEffect(() => {
-    if (error) {
-      if (error.errors) {
-        error.errors.forEach((err) => {
-          if (
-            err.field === "email" ||
-            err.field === "password" ||
-            err.field === "confirmPassword" ||
-            err.field === "firstName" ||
-            err.field === "lastName"
-          ) {
-            setFormError(
-              err.field as
-                | "email"
-                | "password"
-                | "confirmPassword"
-                | "firstName"
-                | "lastName",
-              { type: "manual", message: err.message }
-            );
-          } else {
-            console.warn("Unhandled API field error:", err);
-          }
-        });
-      }
-    }
-  }, [error, setFormError]);
+  }, [redirectToChat]);
 
   const onSubmit: SubmitHandler<SignupInput> = async (data) => {
     clearError();
-    const { ...signupData } = data;
 
-    try {
-      await signup(signupData);
+    const { ...signupData } = data;
+    const success = await signup(signupData);
+    if (success) {
+      console.log("Signup is successfull :-)");
+      reset();
       router.push("/signup-success");
-    } catch (err) {
-      console.error("Signup page onSubmit caught error:", err);
     }
   };
-
-  // Updated styles to match the hero section
-  const inputContainerStyle = "relative mb-4";
-  const inputStyle =
-    "w-full px-4 py-3 pl-10 bg-[#2D2D2D] border border-white/10 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#00BFA5] focus:border-transparent transition-all duration-300";
-  const inputIconStyle = "absolute left-3 top-3.5 text-gray-400";
-  const errorTextStyle = "mt-1 text-sm text-red-400";
-  const buttonStyle =
-    "w-full px-6 py-4 mt-4 bg-gradient-to-r from-[#6200EA] to-[#00BFA5] text-white font-semibold rounded-lg hover:shadow-lg hover:shadow-[#6200EA]/20 transition-all";
 
   return (
     <section className="relative min-h-screen flex items-center justify-center pt-8 pb-12 overflow-hidden bg-black">
@@ -271,129 +227,147 @@ const SignupPage: React.FC = () => {
             </motion.h1>
 
             {/* Error message display */}
-            {error && !error.errors && (
+            {error && Object.keys(errors).length === 0 && (
               <motion.div
                 className="mb-4 p-3 bg-red-500/20 border border-red-500/30 rounded-lg text-red-400 text-sm"
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
               >
-                {error.message}
+                {error}
               </motion.div>
             )}
 
             <form onSubmit={handleSubmit(onSubmit)}>
               {/* First Name Input */}
               <motion.div
-                className={inputContainerStyle}
+                className="relative mb-4"
                 variants={inputAnimation}
                 custom={0.4}
               >
-                <User className={`w-5 h-5 ${inputIconStyle}`} />
+                <User
+                  className={`w-5 h-5 absolute left-3 top-3.5 text-gray-400`}
+                />
                 <input
                   id="firstName"
                   type="text"
                   autoComplete="given-name"
                   required
-                  className={`${inputStyle} ${
+                  className={`w-full px-4 py-3 pl-10 bg-[#2D2D2D] border border-white/10 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#00BFA5] focus:border-transparent transition-all duration-300 ${
                     errors.firstName ? "border-red-500" : ""
                   }`}
                   placeholder="First Name"
                   {...register("firstName")}
                 />
                 {errors.firstName && (
-                  <p className={errorTextStyle}>{errors.firstName.message}</p>
+                  <p className="mt-1 text-sm text-red-400">
+                    {errors.firstName.message}
+                  </p>
                 )}
               </motion.div>
 
               {/* Last Name Input */}
               <motion.div
-                className={inputContainerStyle}
+                className="relative mb-4"
                 variants={inputAnimation}
                 custom={0.5}
               >
-                <User className={`w-5 h-5 ${inputIconStyle}`} />
+                <User
+                  className={`w-5 h-5 absolute left-3 top-3.5 text-gray-400`}
+                />
                 <input
                   id="lastName"
                   type="text"
                   autoComplete="family-name"
                   required
-                  className={`${inputStyle} ${
+                  className={`w-full px-4 py-3 pl-10 bg-[#2D2D2D] border border-white/10 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#00BFA5] focus:border-transparent transition-all duration-300 ${
                     errors.lastName ? "border-red-500" : ""
                   }`}
                   placeholder="Last Name"
                   {...register("lastName")}
                 />
                 {errors.lastName && (
-                  <p className={errorTextStyle}>{errors.lastName.message}</p>
+                  <p className="mt-1 text-sm text-red-400">
+                    {errors.lastName.message}
+                  </p>
                 )}
               </motion.div>
 
               {/* Email Input */}
               <motion.div
-                className={inputContainerStyle}
+                className="relative mb-4"
                 variants={inputAnimation}
                 custom={0.6}
               >
-                <Mail className={`w-5 h-5 ${inputIconStyle}`} />
+                <Mail
+                  className={`w-5 h-5 absolute left-3 top-3.5 text-gray-400`}
+                />
                 <input
                   id="email"
                   type="email"
                   autoComplete="email"
                   required
-                  className={`${inputStyle} ${
+                  className={`w-full px-4 py-3 pl-10 bg-[#2D2D2D] border border-white/10 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#00BFA5] focus:border-transparent transition-all duration-300 ${
                     errors.email ? "border-red-500" : ""
                   }`}
                   placeholder="Email address"
                   {...register("email")}
                 />
                 {errors.email && (
-                  <p className={errorTextStyle}>{errors.email.message}</p>
+                  <p className="mt-1 text-sm text-red-400">
+                    {errors.email.message}
+                  </p>
                 )}
               </motion.div>
 
               {/* Password Input */}
               <motion.div
-                className={inputContainerStyle}
+                className="relative mb-4"
                 variants={inputAnimation}
                 custom={0.7}
               >
-                <Key className={`w-5 h-5 ${inputIconStyle}`} />
+                <Key
+                  className={`w-5 h-5 absolute left-3 top-3.5 text-gray-400`}
+                />
                 <input
                   id="password"
                   type="password"
                   autoComplete="new-password"
                   required
-                  className={`${inputStyle} ${
+                  className={`w-full px-4 py-3 pl-10 bg-[#2D2D2D] border border-white/10 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#00BFA5] focus:border-transparent transition-all duration-300 ${
                     errors.password ? "border-red-500" : ""
                   }`}
                   placeholder="Password (min. 8 characters)"
                   {...register("password")}
                 />
                 {errors.password && (
-                  <p className={errorTextStyle}>{errors.password.message}</p>
+                  <p className="mt-1 text-sm text-red-400">
+                    {errors.password.message}
+                  </p>
                 )}
               </motion.div>
 
               {/* Confirm Password Input */}
               <motion.div
-                className={inputContainerStyle}
+                className="relative mb-4"
                 variants={inputAnimation}
                 custom={0.8}
               >
-                <Key className={`w-5 h-5 ${inputIconStyle}`} />
+                <Key
+                  className={`w-5 h-5 absolute left-3 top-3.5 text-gray-400`}
+                />
                 <input
                   id="confirmPassword"
                   type="password"
                   autoComplete="new-password"
                   required
-                  className={`${inputStyle} ${
+                  className={`w-full px-4 py-3 pl-10 bg-[#2D2D2D] border border-white/10 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#00BFA5] focus:border-transparent transition-all duration-300 ${
                     errors.confirmPassword ? "border-red-500" : ""
                   }`}
                   placeholder="Confirm Password"
                   {...register("confirmPassword")}
                 />
                 {errors.confirmPassword && (
-                  <p className={errorTextStyle}>
+                  <p className="mt-1 text-sm text-red-400">
                     {errors.confirmPassword.message}
                   </p>
                 )}
@@ -429,7 +403,9 @@ const SignupPage: React.FC = () => {
                 </div>
               </motion.div>
               {errors.acceptTerms && (
-                <p className={errorTextStyle}>{errors.acceptTerms.message}</p>
+                <p className="mt-1 text-sm text-red-400">
+                  {errors.acceptTerms.message}
+                </p>
               )}
 
               {/* Submit Button */}
@@ -441,12 +417,12 @@ const SignupPage: React.FC = () => {
               >
                 <button
                   type="submit"
-                  className={buttonStyle}
-                  disabled={isLoading}
+                  className="w-full px-6 py-4 mt-4 bg-gradient-to-r from-[#6200EA] to-[#00BFA5] text-white font-semibold rounded-lg hover:shadow-lg hover:shadow-[#6200EA]/20 transition-all"
+                  disabled={loading}
                 >
                   <span className="relative z-10 flex items-center justify-center">
-                    {isLoading ? "Creating account..." : "Sign up"}
-                    {!isLoading && (
+                    {loading ? "Creating account..." : "Sign up"}
+                    {!loading && (
                       <motion.span
                         className="ml-2 flex items-center"
                         animate={{ x: [0, 5, 0] }}
