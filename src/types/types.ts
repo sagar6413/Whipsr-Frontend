@@ -63,23 +63,14 @@ export interface User {
 
 //----------------------------------------------ERROR-------------------------------------------------------
 
-export interface ProblemDetail {
+export interface ApiErrorResponse {
   type: string;
   title: string;
   status: number;
   detail: string;
+  instance: string;
   errorCode: number;
-  timestamp: string;
-}
-
-export interface ApiErrorResponse {
-  success: boolean;
   message: string;
-  errorCode?: number;
-  details?: {
-    "Problem Detail :"?: ProblemDetail;
-  };
-  title?: string;
   timestamp: string;
 }
 
