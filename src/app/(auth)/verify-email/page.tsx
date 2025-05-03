@@ -44,7 +44,8 @@ const EmailVerificationContent: React.FC = () => {
   const [canResend, setCanResend] = useState<boolean>(false);
   const [resendMessage, setResendMessage] = useState<string | null>(null);
   const verificationInitiatedRef = useRef(false);
-  const { verify, resendVerification, loading, error, clearError } = useAuth();
+  const { verify, resendVerificationWithToken, loading, error, clearError } =
+    useAuth();
 
   const token = searchParams.get("token");
 
@@ -100,7 +101,7 @@ const EmailVerificationContent: React.FC = () => {
     setResendMessage(null);
     clearError();
 
-    const success = await resendVerification({ token });
+    const success = await resendVerificationWithToken({ token });
     if (success) {
       setResendMessage("Verification email sent successfully.");
       setCanResend(false);

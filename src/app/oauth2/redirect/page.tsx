@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, Suspense, useRef } from "react";
+import React, { useEffect, useState, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { motion } from "framer-motion";
@@ -22,16 +22,6 @@ const fadeIn = {
   }),
 };
 
-const floatingAnimation = {
-  y: [0, -15, 0],
-  transition: {
-    duration: 6,
-    repeat: Infinity,
-    repeatType: "reverse",
-    ease: "easeInOut",
-  },
-};
-
 // Simple Spinner with animation
 const Spinner = () => (
   <motion.div
@@ -45,56 +35,59 @@ const Spinner = () => (
   />
 );
 
-// Status is simpler now: just processing or error
-type Status = "processing" | "error";
-
-const OAuthRedirectContent: React.FC = () => {
+const OAuthRedirectContent = () => {
   const { fetchUser, clearUser } = useUserStore();
   const searchParams = useSearchParams();
   const router = useRouter();
-  const [status, setStatus] = useState<Status>("processing");
+  const [status, setStatus] = useState("processing");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // Store initial values in refs
-  const initialSearchParams = useRef(searchParams);
-  const initialRouter = useRef(router);
-
   useEffect(() => {
-    console.log("useEffect triggered");
+    const handleAuth = async () => {
+      try {
+        // Get params directly from searchParams
+        const token = searchParams.get("token");
+        const error = searchParams.get("error");
+        const refreshToken = searchParams.get("refreshToken");
 
-    const token = initialSearchParams.current.get("token");
-    const error = initialSearchParams.current.get("error");
-    const refreshToken = initialSearchParams.current.get("refreshToken");
+        console.log("Token:", token);
+        console.log("Error:", error);
+        console.log("Refresh Token:", refreshToken);
 
-    console.log("Token:", token);
-    console.log("Error:", error);
-    console.log("Refresh Token:", refreshToken);
+        if (error) {
+          console.log("Authentication error detected");
+          setErrorMessage(error || "An error occurred during authentication.");
+          setStatus("error");
+          clearUser();
+        } else if (token && refreshToken) {
+          console.log(
+            "Authentication successful. Storing tokens and redirecting..."
+          );
+          setTokens(token, refreshToken);
+          await fetchUser();
+          setTimeout(() => {
+            router.push("/chat");
+          }, 3000);
+        } else {
+          console.log("Invalid authentication response from server");
+          setErrorMessage("Invalid authentication response from server.");
+          setStatus("error");
+          clearUser();
+        }
+      } catch (err) {
+        console.error("Authentication processing error:", err);
+        setErrorMessage("An error occurred while processing authentication.");
+        setStatus("error");
+        clearUser();
+      }
+    };
 
-    if (error) {
-      console.log("Authentication error detected");
-      setErrorMessage(error || "An error occurred during authentication.");
-      setStatus("error");
-      clearUser();
-    } else if (token && refreshToken) {
-      console.log(
-        "Authentication successful. Storing tokens and redirecting..."
-      );
-      setTokens(token, refreshToken);
-      fetchUser();
-      setTimeout(() => {
-        initialRouter.current.push("/chat");
-      }, 3000);
-    } else {
-      console.log("Invalid authentication response from server");
-      setErrorMessage("Invalid authentication response from server.");
-      setStatus("error");
-      clearUser();
-    }
-  }, [clearUser, fetchUser]);
+    handleAuth();
+  }, [searchParams, router, fetchUser, clearUser]);
 
   return (
     <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
-      {/* Animated background elements - same as hero */}
+      {/* Animated background elements */}
       <div className="absolute inset-0 -z-10">
         <motion.div
           className="absolute top-20 left-10 w-96 h-96 bg-[#6200EA]/20 rounded-full filter blur-3xl"
@@ -140,7 +133,7 @@ const OAuthRedirectContent: React.FC = () => {
             className="relative max-w-md w-full"
             variants={fadeIn}
             custom={0.1}
-            animate={{ ...floatingAnimation, ...fadeIn.visible(0.1) }}
+            animate="visible"
             initial="hidden"
           >
             {/* Card glow effect */}
@@ -174,7 +167,7 @@ const OAuthRedirectContent: React.FC = () => {
                     <div className="text-white font-medium">Authentication</div>
                     <div className="text-white/60 text-xs flex items-center">
                       <motion.span
-                        className="inline-block w-2 h-2 rounded-full bg-green-400 mr-1"
+                        className="inline-block w-2 h-2 rounded-full bg-red-400 mr-1"
                         animate={{
                           scale: [1, 1.2, 1],
                           opacity: [0.8, 1, 0.8],
@@ -185,7 +178,7 @@ const OAuthRedirectContent: React.FC = () => {
                           repeatType: "reverse",
                         }}
                       />
-                      Processing
+                      {status === "processing" ? "Processing" : "Failed"}
                     </div>
                   </div>
                 </div>
@@ -217,6 +210,8 @@ const OAuthRedirectContent: React.FC = () => {
                     {/* Feature indicators at bottom */}
                     <motion.div
                       className="flex flex-wrap justify-center gap-x-6 gap-y-4 text-sm text-gray-400 mt-6"
+                      initial="hidden"
+                      animate="visible"
                       variants={{
                         hidden: { opacity: 0 },
                         visible: {
@@ -357,7 +352,7 @@ const OAuthRedirectContent: React.FC = () => {
 };
 
 // Wrap the component with Suspense for useSearchParams
-const OAuthRedirectPage: React.FC = () => {
+const OAuthRedirectPage = () => {
   return (
     <Suspense
       fallback={

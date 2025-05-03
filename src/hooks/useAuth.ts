@@ -5,8 +5,9 @@ import {
   verifyEmail,
   resetPassword,
   getOauthProviders,
-  resendVerificationEmail,
   forgotPassword,
+  resendVerificationEmailWithMail,
+  resendVerificationEmailWithToken,
 } from "@/services/authService";
 import { useUserStore } from "@/store/userStore";
 import {
@@ -14,8 +15,9 @@ import {
   SignupRequest,
   PasswordResetRequest,
   PasswordUpdateRequest,
-  ResendVerificationRequest,
   OauthProvidersResponseDto,
+  ResendEmailVerificationRequestWithMail,
+  ResendEmailVerificationRequestWithToken,
 } from "@/types/types";
 import { setTokens, clearTokens, isAuthenticated } from "@/utils/cookieManager";
 import { log } from "@/utils/logger";
@@ -167,8 +169,8 @@ export const useAuth = () => {
     [handleError]
   );
 
-  const resendVerification = useCallback(
-    async (data: ResendVerificationRequest) => {
+  const resendVerificationWithEmail = useCallback(
+    async (data: ResendEmailVerificationRequestWithMail) => {
       setLoading(true);
       setError(null);
       log.debug(
@@ -177,7 +179,28 @@ export const useAuth = () => {
       );
 
       try {
-        await resendVerificationEmail(data);
+        await resendVerificationEmailWithMail(data);
+        return true;
+      } catch (err) {
+        return handleError("resendVerification", err);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [handleError]
+  );
+
+  const resendVerificationWithToken = useCallback(
+    async (data: ResendEmailVerificationRequestWithToken) => {
+      setLoading(true);
+      setError(null);
+      log.debug(
+        "useAuth.resendVerification",
+        "Requesting new verification email"
+      );
+
+      try {
+        await resendVerificationEmailWithToken(data);
         return true;
       } catch (err) {
         return handleError("resendVerification", err);
@@ -214,7 +237,8 @@ export const useAuth = () => {
     verify,
     forgotPasswordRequest,
     resetPasswordWithToken,
-    resendVerification,
+    resendVerificationWithEmail,
+    resendVerificationWithToken,
     getOAuthProviders,
     clearError,
     loading,

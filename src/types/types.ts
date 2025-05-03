@@ -23,7 +23,11 @@ export interface PasswordUpdateRequest {
   newPassword: string;
 }
 
-export interface ResendVerificationRequest {
+export interface ResendEmailVerificationRequestWithMail {
+  email: string;
+}
+
+export interface ResendEmailVerificationRequestWithToken {
   token: string;
 }
 
@@ -40,7 +44,6 @@ export interface OauthProvidersResponseDto {
     github?: string;
   };
 }
-
 
 // ------------------------------------------------USER-RELATED---------------------------------------
 

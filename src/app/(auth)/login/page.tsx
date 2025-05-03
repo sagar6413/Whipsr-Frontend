@@ -307,25 +307,117 @@ const LoginPage: React.FC = () => {
               >
                 <button
                   type="submit"
-                  className={buttonStyle}
+                  className={`${buttonStyle} relative overflow-hidden`}
                   disabled={loading}
                 >
+                  {/* Background pulse effect when loading */}
+                  {loading && (
+                    <motion.div
+                      className="absolute inset-0 bg-gradient-to-r from-[#6200EA]/80 to-[#00BFA5]/80"
+                      animate={{
+                        scale: [1, 1.05, 1],
+                        opacity: [0.8, 1, 0.8],
+                      }}
+                      transition={{
+                        duration: 1.5,
+                        repeat: Infinity,
+                        ease: "easeInOut",
+                      }}
+                    />
+                  )}
+
+                  {/* Hover gradient animation */}
+                  <motion.div
+                    className="absolute inset-0 bg-gradient-to-r from-[#00BFA5]/40 to-[#6200EA]/40"
+                    initial={{ x: "-100%" }}
+                    whileHover={{ x: "100%" }}
+                    transition={{
+                      duration: 1.2,
+                      ease: "easeInOut",
+                    }}
+                  />
+
+                  {/* Button content */}
                   <span className="relative z-10 flex items-center justify-center">
-                    {loading ? "Signing in..." : "Sign in"}
-                    {!loading && (
-                      <motion.span
-                        className="ml-2 flex items-center"
-                        animate={{ x: [0, 5, 0] }}
-                        transition={{
-                          repeat: Infinity,
-                          duration: 1.5,
-                          repeatDelay: 2,
-                        }}
-                      >
-                        <ArrowRight className="w-5 h-5" />
-                      </motion.span>
+                    {loading ? (
+                      <motion.div className="flex items-center">
+                        Signing in
+                        <motion.span
+                          animate={{ opacity: [0, 1, 0] }}
+                          transition={{
+                            duration: 1.2,
+                            repeat: Infinity,
+                            repeatType: "loop",
+                            times: [0, 0.5, 1],
+                            ease: "easeInOut",
+                          }}
+                        >
+                          ...
+                        </motion.span>
+                        <motion.div
+                          className="ml-2 w-5 h-5 border-2 border-white border-t-transparent rounded-full"
+                          animate={{ rotate: 360 }}
+                          transition={{
+                            duration: 1,
+                            repeat: Infinity,
+                            ease: "linear",
+                          }}
+                        />
+                      </motion.div>
+                    ) : (
+                      <motion.div className="flex items-center">
+                        Sign in
+                        <motion.span
+                          className="ml-2 flex items-center"
+                          animate={{
+                            x: [0, 5, 0],
+                            scale: [1, 1.1, 1],
+                          }}
+                          transition={{
+                            repeat: Infinity,
+                            duration: 1.5,
+                            repeatDelay: 1,
+                            ease: "easeOut",
+                          }}
+                        >
+                          <ArrowRight className="w-5 h-5" />
+                        </motion.span>
+                      </motion.div>
                     )}
                   </span>
+
+                  {/* Decorative particles that appear on hover */}
+                  <motion.div
+                    className="absolute inset-0 pointer-events-none"
+                    initial="hidden"
+                    whileHover="visible"
+                  >
+                    {[...Array(5)].map((_, i) => (
+                      <motion.div
+                        key={i}
+                        className="absolute w-1.5 h-1.5 rounded-full bg-white/60"
+                        initial={{
+                          x: "50%",
+                          y: "100%",
+                          opacity: 0,
+                        }}
+                        variants={{
+                          hidden: { opacity: 0 },
+                          visible: {
+                            y: ["100%", "-100%"],
+                            x: [`${50 + (i - 2) * 30}%`],
+                            opacity: [0, 0.8, 0],
+                            transition: {
+                              duration: 1 + i * 0.2,
+                              repeat: Infinity,
+                              delay: i * 0.1,
+                              ease: "easeOut",
+                            },
+                          },
+                        }}
+                      />
+                    ))}
+                  </motion.div>
                 </button>
               </motion.div>
 

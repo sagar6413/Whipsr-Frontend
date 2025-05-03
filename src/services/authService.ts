@@ -4,9 +4,10 @@ import {
   OauthProvidersResponseDto,
   PasswordResetRequest,
   PasswordUpdateRequest,
-  ResendVerificationRequest,
+  ResendEmailVerificationRequestWithMail,
+  ResendEmailVerificationRequestWithToken,
   SignupRequest,
-  Tokens
+  Tokens,
 } from "../types/types";
 import api from "./axiosInstance";
 
@@ -26,19 +27,27 @@ export const login = async (data: LoginRequest): Promise<Tokens> => {
 
 export const verifyEmail = async (token: string): Promise<void> => {
   log.debug("verifyEmail", "Starting email verification");
-  const response = await api.get<void>("/auth/verify-email", { params: { token } });
+  const response = await api.get<void>("/auth/verify-email", {
+    params: { token },
+  });
   log.info("verifyEmail", "Email verification complete");
   return response.data;
 };
 
-export const forgotPassword = async (data: PasswordResetRequest): Promise<void> => {
-  log.debug("forgotPassword", "Sending forgot password link", { email: data.email });
+export const forgotPassword = async (
+  data: PasswordResetRequest
+): Promise<void> => {
+  log.debug("forgotPassword", "Sending forgot password link", {
+    email: data.email,
+  });
   const response = await api.post<void>("/auth/forgot-password", data);
   log.info("forgotPassword", "Forgot Password Email Sent Successfully");
   return response.data;
 };
 
-export const resetPassword = async (data: PasswordUpdateRequest): Promise<void> => {
+export const resetPassword = async (
+  data: PasswordUpdateRequest
+): Promise<void> => {
   log.debug("resetPassword", "Resetting password with token");
   const response = await api.post<void>("/auth/reset-password", data);
   log.info("resetPassword", "Password reset successful");
@@ -52,16 +61,33 @@ export const logout = async (): Promise<void> => {
   return response.data;
 };
 
-export const getOauthProviders = async (): Promise<OauthProvidersResponseDto> => {
-  log.debug("getOauthProviders", "Fetching OAuth providers");
-  const response = await api.get<OauthProvidersResponseDto>("/auth/oauth2-providers");
-  log.info("getOauthProviders", "OAuth providers retrieved successfully");
+export const getOauthProviders =
+  async (): Promise<OauthProvidersResponseDto> => {
+    log.debug("getOauthProviders", "Fetching OAuth providers");
+    const response = await api.get<OauthProvidersResponseDto>(
+      "/auth/oauth2-providers"
+    );
+    log.info("getOauthProviders", "OAuth providers retrieved successfully");
+    return response.data;
+  };
+
+export const resendVerificationEmailWithMail = async (
+  data: ResendEmailVerificationRequestWithMail
+): Promise<void> => {
+  log.debug("resendVerificationEmail", "Requesting new verification email");
+  const response = await api.post<void>("/auth/resend-mail-verification", data);
+  log.info("resendVerificationEmail", "Verification email request sent");
   return response.data;
 };
 
-export const resendVerificationEmail = async (data: ResendVerificationRequest): Promise<void> => {
+export const resendVerificationEmailWithToken = async (
+  data: ResendEmailVerificationRequestWithToken
+): Promise<void> => {
   log.debug("resendVerificationEmail", "Requesting new verification email");
-  const response = await api.post<void>("/auth/resend-verification", data);
+  const response = await api.post<void>(
+    "/auth/resend-token-verification",
+    data
+  );
   log.info("resendVerificationEmail", "Verification email request sent");
   return response.data;
 };
