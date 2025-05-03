@@ -145,7 +145,7 @@ export default function ChatApp() {
   }, [router]);
 
   useEffect(() => {
-    if (authToken === null) {
+    if (!isAuthenticated()) {
       navigateToLogin();
     }
   }, [authToken, navigateToLogin]);
@@ -156,10 +156,6 @@ export default function ChatApp() {
       inputRef.current.focus();
     }
   }, [chatState]);
-
-  useEffect(() => {
-    console.log("Hahahahha", isAuthenticated());
-  }, []);
 
   // Close emoji picker on outside click
   useEffect(() => {

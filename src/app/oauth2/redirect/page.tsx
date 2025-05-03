@@ -6,6 +6,7 @@ import Link from "next/link";
 import { motion } from "framer-motion";
 import { ArrowRight, Lock, Shield, ShieldCheck } from "lucide-react";
 import { setTokens } from "@/utils/cookieManager";
+import { useUserStore } from "@/store/userStore";
 
 // Define animation variants
 const fadeIn = {
@@ -48,6 +49,7 @@ const Spinner = () => (
 type Status = "processing" | "error";
 
 const OAuthRedirectContent: React.FC = () => {
+  const { fetchUser, clearUser } = useUserStore();
   const searchParams = useSearchParams();
   const router = useRouter();
   const [status, setStatus] = useState<Status>("processing");
@@ -72,18 +74,23 @@ const OAuthRedirectContent: React.FC = () => {
       console.log("Authentication error detected");
       setErrorMessage(error || "An error occurred during authentication.");
       setStatus("error");
+      clearUser();
     } else if (token && refreshToken) {
       console.log(
         "Authentication successful. Storing tokens and redirecting..."
       );
       setTokens(token, refreshToken);
-      initialRouter.current.push("/chat");
+      fetchUser();
+      setTimeout(() => {
+        initialRouter.current.push("/chat");
+      }, 3000);
     } else {
       console.log("Invalid authentication response from server");
       setErrorMessage("Invalid authentication response from server.");
       setStatus("error");
+      clearUser();
     }
-  }, []);
+  }, [clearUser, fetchUser]);
 
   return (
     <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
